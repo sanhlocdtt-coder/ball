@@ -1,0 +1,2631 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Siêu Chiến Binh: Gồng Nộ Tiến Hóa</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,600;0,700;1,700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: manipulation;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #090a0f;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100dvh;
+            width: 100vw;
+        }
+        .font-anime {
+            font-family: 'Chakra Petch', sans-serif;
+        }
+        /* Khung điện thoại dọc chuẩn trên cả Desktop & Mobile */
+        #game-shell {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 600px;
+            max-height: 100dvh;
+            background: #111827;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 60px rgba(245, 158, 11, 0.28);
+        }
+        @media (min-width: 640px) {
+            #game-shell {
+                height: 97dvh;
+                border-radius: 32px;
+                border: 3px solid #2d3748;
+            }
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* Thanh cuộn mượt cho bảng nâng cấp */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.8)); }
+            50% { filter: drop-shadow(0 0 16px rgba(251, 191, 36, 1)); }
+        }
+        .glow-text {
+            animation: pulseGlow 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-shell">
+    <!-- HUD Phía Trên: Sức mạnh chiến đấu & Nút chức năng -->
+    <div class="absolute top-0 left-0 right-0 z-20 p-3 pt-4 flex flex-col gap-2 pointer-events-none">
+        <div class="flex items-center justify-between gap-2">
+            <!-- Chỉ số Ki / Sức mạnh -->
+            <div class="bg-slate-900/80 backdrop-blur-md border border-amber-500/40 rounded-2xl px-3.5 py-2 flex items-center gap-2.5 shadow-lg pointer-events-auto">
+                <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-slate-950 font-black text-lg shadow-inner">
+                    ⚡
+                </div>
+                <div>
+                    <div class="text-[10px] uppercase tracking-wider text-amber-300/80 font-bold">Năng Lượng Ki</div>
+                    <div id="ui-ki-amount" class="font-anime text-lg sm:text-xl font-bold text-white leading-none">0</div>
+                </div>
+            </div>
+
+            <!-- Sức mạnh chiến đấu (BP) & Nút Âm thanh -->
+            <div class="flex items-center gap-1.5 pointer-events-auto">
+                <div class="bg-slate-900/80 backdrop-blur-md border border-sky-500/30 rounded-2xl px-2.5 py-2 text-right shadow-lg hidden sm:block">
+                    <div class="text-[10px] uppercase tracking-wider text-sky-300/80 font-bold">Chỉ Số BP</div>
+                    <div id="ui-bp-amount" class="font-anime text-sm font-bold text-sky-400 leading-none">1,000</div>
+                </div>
+                <button id="btn-sound-studio" class="h-10 px-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-anime font-bold text-xs flex items-center gap-1 active:scale-90 transition shadow-lg border border-purple-400/30" aria-label="Tự Thiết Kế Âm Thanh">
+                    <span>🎙️</span><span>Âm Thanh</span>
+                </button>
+                <button id="btn-roster" class="h-10 px-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 font-anime font-bold text-xs flex items-center gap-1 active:scale-90 transition shadow-lg" aria-label="Chọn và Tạo Nhân Vật">
+                    <span>🥋</span><span>Nhân Vật</span>
+                </button>
+                <button id="btn-sound" class="w-10 h-10 rounded-2xl bg-slate-900/85 backdrop-blur-md border border-slate-700 flex items-center justify-center text-amber-400 active:scale-90 transition shadow-lg" aria-label="Bật tắt âm thanh">
+                    <span id="sound-icon" class="text-lg">🔊</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Huy hiệu trạng thái hiện tại -->
+        <div class="flex items-center justify-between px-1">
+            <div class="inline-flex items-center gap-1.5 bg-black/60 backdrop-blur-sm border border-white/15 rounded-full px-3 py-1">
+                <span id="ui-stage-dot" class="w-2.5 h-2.5 rounded-full bg-slate-300"></span>
+                <span id="ui-stage-name" class="font-anime text-xs font-bold tracking-wide text-white uppercase">Trạng Thái Thường</span>
+            </div>
+            <div id="ui-multiplier-badge" class="bg-amber-500/20 border border-amber-400/40 rounded-full px-2.5 py-0.5 text-[11px] font-bold text-amber-300">
+                x1.0 Sức Mạnh
+            </div>
+        </div>
+
+        <!-- Thanh Nộ (Rage / Evolution Gauge) -->
+        <div class="mt-1 bg-slate-950/85 backdrop-blur-md p-2 rounded-2xl border border-white/15 shadow-xl">
+            <div class="flex justify-between items-center text-xs font-bold mb-1 px-1">
+                <span id="ui-gauge-label" class="font-anime tracking-wider text-amber-400 uppercase">GỒNG NỘ TIẾN HÓA</span>
+                <span id="ui-gauge-percent" class="font-anime text-white">0%</span>
+            </div>
+            <div class="w-full h-4 bg-slate-900 rounded-full overflow-hidden p-0.5 border border-slate-700/80 relative">
+                <div id="ui-gauge-bar" class="h-full rounded-full transition-all duration-75 bg-gradient-to-r from-sky-400 via-amber-400 to-red-500 relative" style="width: 0%">
+                    <div class="absolute inset-0 bg-white/25 animate-pulse"></div>
+                </div>
+            </div>
+            <div id="ui-next-form-hint" class="text-[11px] text-center text-slate-300 mt-1 font-medium">
+                Chạm liên tục vào chiến binh để gồng lên <span class="text-amber-400 font-bold">Super Saiyan</span>!
+            </div>
+        </div>
+    </div>
+
+    <!-- Khu vực Canvas Chính (Tương tác chạm) -->
+    <div id="canvas-wrapper" class="relative flex-1 w-full h-full cursor-pointer">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Nút Vượt Giới Hạn (Rebirth / Zenkai) xuất hiện khi đạt cấp cao -->
+        <button id="btn-zenkai" class="hidden absolute top-44 right-3 z-20 bg-gradient-to-r from-rose-600 to-amber-500 text-white font-anime font-bold text-xs px-3.5 py-2 rounded-2xl shadow-lg shadow-rose-600/40 border border-white/30 active:scale-95 transition animate-bounce">
+            🔥 VƯỢT GIỚI HẠN (x2)
+        </button>
+
+        <!-- Thông báo nổi khi biến hình -->
+        <div id="evolution-banner" class="pointer-events-none absolute inset-x-0 top-1/3 z-30 flex flex-col items-center justify-center opacity-0 transition-opacity duration-300">
+            <div class="px-6 py-2 bg-gradient-to-r from-transparent via-amber-500/90 to-transparent w-full text-center">
+                <div class="font-anime text-xs font-bold tracking-[0.25em] text-slate-950 uppercase">ĐỘT PHÁ GIỚI HẠN</div>
+                <div id="evolution-banner-title" class="font-anime text-2xl sm:text-3xl font-black text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] uppercase">
+                    SUPER SAIYAN!
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 1: DANH SÁCH NHÂN VẬT (ROSTER) -->
+    <div id="modal-roster" class="hidden absolute inset-0 z-40 bg-slate-950/95 backdrop-blur-md flex flex-col p-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div>
+                <h2 class="font-anime text-lg font-bold text-amber-400 uppercase tracking-wide">DANH SÁCH CHIẾN BINH</h2>
+                <p class="text-[11px] text-slate-400">Chọn nhân vật hoặc tự tạo nhân vật mới</p>
+            </div>
+            <button id="btn-close-roster" class="w-9 h-9 rounded-xl bg-slate-800 text-slate-300 font-bold flex items-center justify-center active:scale-90">✕</button>
+        </div>
+
+        <div id="roster-list" class="flex-1 overflow-y-auto no-scrollbar py-3 flex flex-col gap-2.5">
+            <!-- Render động bằng JS -->
+        </div>
+
+        <button id="btn-open-creator" class="mt-2 w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 text-slate-950 font-anime font-black text-sm uppercase tracking-wider shadow-lg shadow-orange-500/30 active:scale-95 transition flex items-center justify-center gap-2">
+            <span>➕</span> TẠO / THÊM NHÂN VẬT MỚI
+        </button>
+    </div>
+
+    <!-- MODAL 2: XƯỞNG TẠO & NHẬP NHÂN VẬT (CHARACTER CREATOR STUDIO) -->
+    <div id="modal-creator" class="hidden absolute inset-0 z-50 bg-slate-950 flex flex-col overflow-hidden">
+        <!-- Header Xưởng -->
+        <div class="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800">
+            <h2 class="font-anime text-base font-bold text-white uppercase">XƯỞNG TẠO NHÂN VẬT</h2>
+            <button id="btn-close-creator" class="w-8 h-8 rounded-xl bg-slate-800 text-slate-300 font-bold flex items-center justify-center active:scale-90">✕</button>
+        </div>
+
+        <!-- Tabs: Tự Vẽ vs Tải Ảnh -->
+        <div class="grid grid-cols-2 gap-1.5 p-2 bg-slate-900/60 border-b border-slate-800">
+            <button id="tab-draw" class="py-2 rounded-xl font-anime text-xs font-bold bg-amber-500 text-slate-950 transition">🎨 Tự Vẽ Nhân Vật</button>
+            <button id="tab-upload" class="py-2 rounded-xl font-anime text-xs font-bold bg-slate-800 text-slate-300 transition">🖼️ Tải Ảnh Từ Máy</button>
+        </div>
+
+        <!-- Nội dung cuộn được -->
+        <div class="flex-1 overflow-y-auto no-scrollbar p-3 flex flex-col gap-3">
+            <!-- Thông tin tên & cấp độ -->
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Tên Nhân Vật</label>
+                    <input id="inp-char-name" type="text" value="Chiến Binh Mới" maxlength="20" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:border-amber-400 outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Màu Hào Quang</label>
+                    <select id="inp-aura-theme" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl px-2 py-1.5 text-xs text-white focus:border-amber-400 outline-none">
+                        <option value="gold">🟡 Vàng Kim (Super Saiyan)</option>
+                        <option value="blue">🔵 Xanh Thần Khí (Blue)</option>
+                        <option value="red">🔴 Đỏ Rực (Kaioken / God)</option>
+                        <option value="purple">🟣 Tím Hủy Diệt (Ultra Ego)</option>
+                        <option value="silver">⚪ Bạc Vô Cực (UI)</option>
+                        <option value="green">🟢 Xanh Huyền Thoại (Broly)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Chọn Trạng thái đang chỉnh sửa (Stage 1 / Stage 2 / Stage 3) -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-[10px] font-bold text-amber-400 uppercase">Chọn Cấp Độ Đang Thiết Kế:</span>
+                    <button id="btn-copy-prev-stage" class="text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/40 px-2 py-0.5 rounded-lg font-bold active:scale-95">📋 Chép từ Cấp 1</button>
+                </div>
+                <div class="grid grid-cols-3 gap-1.5">
+                    <button data-edit-stage="0" class="stage-select-btn py-1.5 px-1 rounded-xl text-[11px] font-bold bg-amber-500 text-slate-950 border border-amber-400">1. Thường</button>
+                    <button data-edit-stage="1" class="stage-select-btn py-1.5 px-1 rounded-xl text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700">2. Tiến Hóa 1</button>
+                    <button data-edit-stage="2" class="stage-select-btn py-1.5 px-1 rounded-xl text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700">3. Cực Hạn (Tùy chọn)</button>
+                </div>
+                <div class="mt-2">
+                    <input id="inp-stage-title" type="text" value="Trạng Thái Thường" maxlength="24" placeholder="Tên trạng thái này..." class="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-2.5 py-1 text-xs text-amber-300 font-semibold outline-none">
+                </div>
+            </div>
+
+            <!-- KHU VỰC 1: CÔNG CỤ TỰ VẼ (DRAWING STUDIO) -->
+            <div id="panel-draw" class="flex flex-col items-center gap-2">
+                <div class="relative bg-slate-900 border-2 border-dashed border-slate-700 rounded-2xl overflow-hidden shadow-inner" style="width: 240px; height: 240px;">
+                    <!-- Lưới caro nền trong suốt -->
+                    <div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(#94a3b8 1px, transparent 1px); background-size: 12px 12px;"></div>
+                    <!-- Đường trục đối xứng -->
+                    <div id="mirror-guide" class="absolute inset-y-0 left-1/2 w-px bg-amber-400/50 pointer-events-none"></div>
+                    <canvas id="drawCanvas" width="240" height="240" class="relative z-10 touch-none cursor-crosshair"></canvas>
+                </div>
+
+                <!-- Thanh công cụ vẽ -->
+                <div class="w-full bg-slate-900 border border-slate-800 rounded-2xl p-2 flex flex-col gap-2">
+                    <!-- Bảng màu nhanh -->
+                    <div class="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar py-0.5" id="color-palette">
+                        <button data-color="#111827" class="color-swatch w-6 h-6 rounded-full bg-[#111827] border-2 border-white shrink-0"></button>
+                        <button data-color="#fdba74" class="color-swatch w-6 h-6 rounded-full bg-[#fdba74] border border-slate-600 shrink-0"></button>
+                        <button data-color="#f97316" class="color-swatch w-6 h-6 rounded-full bg-[#f97316] border border-slate-600 shrink-0"></button>
+                        <button data-color="#1d4ed8" class="color-swatch w-6 h-6 rounded-full bg-[#1d4ed8] border border-slate-600 shrink-0"></button>
+                        <button data-color="#facc15" class="color-swatch w-6 h-6 rounded-full bg-[#facc15] border border-slate-600 shrink-0"></button>
+                        <button data-color="#10b981" class="color-swatch w-6 h-6 rounded-full bg-[#10b981] border border-slate-600 shrink-0"></button>
+                        <button data-color="#06b6d4" class="color-swatch w-6 h-6 rounded-full bg-[#06b6d4] border border-slate-600 shrink-0"></button>
+                        <button data-color="#ef4444" class="color-swatch w-6 h-6 rounded-full bg-[#ef4444] border border-slate-600 shrink-0"></button>
+                        <button data-color="#a855f7" class="color-swatch w-6 h-6 rounded-full bg-[#a855f7] border border-slate-600 shrink-0"></button>
+                        <button data-color="#ffffff" class="color-swatch w-6 h-6 rounded-full bg-[#ffffff] border border-slate-600 shrink-0"></button>
+                        <input id="inp-custom-color" type="color" value="#facc15" class="w-6 h-6 rounded-full bg-transparent border-0 p-0 shrink-0 cursor-pointer" title="Chọn màu khác">
+                    </div>
+
+                    <!-- Chế độ bút, tẩy, đối xứng, hoàn tác -->
+                    <div class="flex items-center justify-between gap-1.5 text-[11px] font-bold">
+                        <button id="tool-brush" class="flex-1 py-1.5 rounded-xl bg-amber-500 text-slate-950">🖌️ Bút</button>
+                        <button id="tool-eraser" class="flex-1 py-1.5 rounded-xl bg-slate-800 text-slate-300">🧽 Tẩy</button>
+                        <button id="tool-mirror" class="flex-1 py-1.5 rounded-xl bg-sky-500/20 text-sky-300 border border-sky-500/40">🪞 Đối xứng</button>
+                        <button id="tool-undo" class="px-2.5 py-1.5 rounded-xl bg-slate-800 text-slate-300">↩️</button>
+                        <button id="tool-clear" class="px-2.5 py-1.5 rounded-xl bg-rose-950/80 text-rose-400">🗑️</button>
+                    </div>
+
+                    <!-- Kích thước nét vẽ -->
+                    <div class="flex items-center gap-2 px-1">
+                        <span class="text-[10px] text-slate-400 font-bold">Cỡ nét:</span>
+                        <input id="inp-brush-size" type="range" min="2" max="22" value="6" class="flex-1 accent-amber-400">
+                        <span id="lbl-brush-size" class="text-[10px] text-amber-400 font-bold w-6 text-right">6px</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KHU VỰC 2: TẢI ẢNH TỪ MÁY & XÓA NỀN TỰ ĐỘNG (IMAGE IMPORTER) -->
+            <div id="panel-upload" class="hidden flex flex-col items-center gap-2.5">
+                <label class="w-full py-3 px-4 rounded-2xl bg-slate-900 border-2 border-dashed border-amber-500/50 hover:border-amber-400 text-center cursor-pointer transition">
+                    <div class="text-xl">📁</div>
+                    <div class="font-anime text-xs font-bold text-amber-400 mt-1">CHỌN ẢNH TỪ ĐIỆN THOẠI / MÁY TÍNH</div>
+                    <div class="text-[10px] text-slate-400">Hỗ trợ PNG, JPG, WebP (Có bộ lọc tách nền tự động)</div>
+                    <input id="inp-file-upload" type="file" accept="image/*" class="hidden">
+                </label>
+
+                <!-- Preview ảnh sau khi xử lý tách nền -->
+                <div class="relative bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden flex items-center justify-center" style="width: 200px; height: 200px;">
+                    <div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(#94a3b8 1px, transparent 1px); background-size: 12px 12px;"></div>
+                    <canvas id="uploadPreviewCanvas" width="240" height="240" class="w-full h-full object-contain relative z-10"></canvas>
+                </div>
+
+                <!-- Bộ lọc tách nền (Chroma Key / Remove BG) -->
+                <div class="w-full bg-slate-900 border border-slate-800 rounded-2xl p-2.5 flex flex-col gap-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] font-bold text-slate-300 uppercase">Tự động xóa nền ảnh:</span>
+                        <select id="sel-bg-remove" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-[11px] text-amber-300 outline-none">
+                            <option value="none">Giữ nguyên (Ảnh PNG trong suốt)</option>
+                            <option value="white" selected>Xóa nền Trắng</option>
+                            <option value="black">Xóa nền Đen</option>
+                            <option value="green">Xóa nền Xanh lá (Green Screen)</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] text-slate-400 font-bold">Độ nhạy tách nền:</span>
+                        <input id="inp-bg-tolerance" type="range" min="10" max="140" value="45" class="flex-1 accent-amber-400">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nút Lưu & Sử Dụng Nhân Vật -->
+        <div class="p-3 bg-slate-900 border-t border-slate-800 flex gap-2">
+            <button id="btn-save-character" class="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 text-slate-950 font-anime font-black text-sm uppercase tracking-wider shadow-lg shadow-emerald-500/20 active:scale-95 transition">
+                💾 LƯU & XUẤT TRẬN NGAY!
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 3: PHÒNG THU & TỰ THIẾT KẾ ÂM THANH (CUSTOM SOUND STUDIO) -->
+    <div id="modal-sound-studio" class="hidden absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col overflow-hidden">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800">
+            <div>
+                <h2 class="font-anime text-base font-bold text-purple-400 uppercase tracking-wide">🎙️ PHÒNG THU ÂM THANH</h2>
+                <p class="text-[11px] text-slate-400">Tự thiết kế, thu âm giọng thật hoặc tải nhạc cho nhân vật</p>
+            </div>
+            <button id="btn-close-sound-studio" class="w-8 h-8 rounded-xl bg-slate-800 text-slate-300 font-bold flex items-center justify-center active:scale-90">✕</button>
+        </div>
+
+        <!-- Tabs chọn sự kiện âm thanh: 1. Khi Click vs 2. Khi Tiến Hóa -->
+        <div class="grid grid-cols-2 gap-1.5 p-2.5 bg-slate-900/70 border-b border-slate-800">
+            <button id="sound-tab-tap" class="py-2 rounded-xl font-anime text-xs font-bold bg-purple-600 text-white shadow transition">⚡ 1. Khi Nhấn Gồng (Click)</button>
+            <button id="sound-tab-evo" class="py-2 rounded-xl font-anime text-xs font-bold bg-slate-800 text-slate-300 transition">🔥 2. Khi Tiến Hóa</button>
+        </div>
+
+        <!-- Nội dung thiết kế âm thanh -->
+        <div class="flex-1 overflow-y-auto no-scrollbar p-3.5 flex flex-col gap-3">
+            <!-- Trạng thái âm thanh hiện tại của slot đang chọn -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex items-center justify-between">
+                <div>
+                    <div class="text-[10px] font-bold text-slate-400 uppercase">Nguồn âm đang dùng:</div>
+                    <div id="lbl-current-sound-source" class="font-anime text-xs font-bold text-amber-400 mt-0.5">Mặc định (Tiếng hét Goku)</div>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <button id="btn-test-sound" class="px-3 py-1.5 rounded-xl bg-emerald-500 text-slate-950 font-anime font-bold text-xs active:scale-95 shadow">▶️ Nghe Thử</button>
+                    <button id="btn-reset-sound" class="px-2.5 py-1.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs active:scale-95" title="Khôi phục mặc định">↺</button>
+                </div>
+            </div>
+
+            <!-- CÁCH 1: TỰ BỘ TỔNG HỢP GIỌNG HÉT / HIỆU ỨNG (SYNTH DESIGNER) -->
+            <div class="bg-slate-900/90 border border-purple-500/30 rounded-2xl p-3 flex flex-col gap-2.5">
+                <div class="flex items-center justify-between">
+                    <span class="font-anime text-xs font-bold text-purple-300 uppercase">🎛️ Bộ Chỉnh Giọng & Hiệu Ứng</span>
+                    <button id="btn-apply-synth" class="px-2.5 py-1 rounded-lg bg-purple-600 text-white text-[11px] font-bold active:scale-95">Áp Dụng Bộ Chỉnh</button>
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Chất giọng / Kiểu âm thanh</label>
+                    <select id="sel-synth-preset" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none">
+                        <option value="roar">🗣️ Tiếng Gào Hét Chiến Binh ("HÁÁÁ!")</option>
+                        <option value="anime_scream">😱 Tiếng Hét Cao Vút ("ÁI! ÁI!")</option>
+                        <option value="energy_blast">💥 Sóng Năng Lượng & Sấm Sét</option>
+                        <option value="laser_charge">⚡ Tụ Khí Siêu Thanh (Sci-Fi)</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <div class="flex justify-between text-[10px] font-bold text-slate-400">
+                            <span>Cao độ (Pitch):</span>
+                            <span id="lbl-synth-pitch" class="text-amber-400">220 Hz</span>
+                        </div>
+                        <input id="inp-synth-pitch" type="range" min="90" max="550" value="220" class="w-full mt-1 accent-purple-500">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px] font-bold text-slate-400">
+                            <span>Độ dài (Giây):</span>
+                            <span id="lbl-synth-dur" class="text-amber-400">0.45s</span>
+                        </div>
+                        <input id="inp-synth-dur" type="range" min="0.15" max="2.5" step="0.05" value="0.45" class="w-full mt-1 accent-purple-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <div class="flex justify-between text-[10px] font-bold text-slate-400">
+                            <span>Độ rung giọng:</span>
+                            <span id="lbl-synth-vibrato" class="text-amber-400">32 Hz</span>
+                        </div>
+                        <input id="inp-synth-vibrato" type="range" min="0" max="65" value="32" class="w-full mt-1 accent-purple-500">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px] font-bold text-slate-400">
+                            <span>Sấm sét kèm theo:</span>
+                            <span id="lbl-synth-spark" class="text-amber-400">50%</span>
+                        </div>
+                        <input id="inp-synth-spark" type="range" min="0" max="100" value="50" class="w-full mt-1 accent-purple-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- CÁCH 2: GHI ÂM TRỰC TIẾP TỪ MICRO ĐIỆN THOẠI -->
+            <div class="bg-slate-900/90 border border-rose-500/30 rounded-2xl p-3 flex flex-col gap-2">
+                <div class="font-anime text-xs font-bold text-rose-400 uppercase">🎤 Thu Âm Giọng Thật Của Bạn</div>
+                <p class="text-[11px] text-slate-400">Bấm nút bên dưới và hét vào micro để làm âm thanh riêng!</p>
+                <div class="flex items-center gap-2">
+                    <button id="btn-record-mic" class="flex-1 py-2.5 rounded-xl bg-rose-600 text-white font-anime font-bold text-xs uppercase tracking-wide flex items-center justify-center gap-1.5 active:scale-95 transition shadow-lg shadow-rose-600/30">
+                        <span id="rec-dot" class="w-2.5 h-2.5 rounded-full bg-white"></span>
+                        <span id="lbl-record-btn">Bắt Đầu Ghi Âm</span>
+                    </button>
+                </div>
+                <div id="lbl-record-status" class="text-[11px] text-center text-rose-300 font-semibold hidden">Đang thu âm... Bấm lại để dừng!</div>
+            </div>
+
+            <!-- CÁCH 3: TẢI FILE ÂM THANH TỪ MÁY (MP3 / WAV / OGG) -->
+            <div class="bg-slate-900/90 border border-sky-500/30 rounded-2xl p-3">
+                <label class="flex items-center justify-between cursor-pointer">
+                    <div>
+                        <div class="font-anime text-xs font-bold text-sky-400 uppercase">📁 Tải File Âm Thanh Từ Máy</div>
+                        <div class="text-[10px] text-slate-400 mt-0.5">Chọn file .MP3, .WAV, .M4A có sẵn trong điện thoại</div>
+                    </div>
+                    <span class="px-3 py-2 rounded-xl bg-sky-500/20 border border-sky-400/40 text-sky-300 font-anime font-bold text-xs">Chọn File</span>
+                    <input id="inp-audio-upload" type="file" accept="audio/*" class="hidden">
+                </label>
+                <!-- Thanh điều chỉnh âm lượng cho file tải lên / thu âm -->
+                <div class="mt-2.5 pt-2.5 border-t border-slate-800/80 flex items-center gap-2.5">
+                    <span class="text-[11px] font-bold text-sky-300 shrink-0">🔊 Âm lượng file:</span>
+                    <input id="inp-audio-volume" type="range" min="0" max="200" value="100" class="flex-1 accent-sky-400">
+                    <span id="lbl-audio-volume" class="font-anime text-xs font-bold text-amber-400 w-10 text-right">100%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nút Xong -->
+        <div class="p-3 bg-slate-900 border-t border-slate-800">
+            <button id="btn-done-sound-studio" class="w-full py-3 rounded-2xl bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-anime font-black text-sm uppercase tracking-wider shadow-lg active:scale-95 transition">
+                ✅ HOÀN TẤT & QUAY LẠI GAME
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * ============================================================================
+ * 1. BỘ TỔNG HỢP ÂM THANH WEB AUDIO API (KHÔNG CẦN FILE MP3 BÊN NGOÀI)
+ * ============================================================================
+ */
+class SoundEngine {
+    constructor() {
+        this.ctx = null;
+        this.muted = false;
+        this.auraOsc = null;
+        this.auraGain = null;
+        this.initialized = false;
+        this.screamBuffer = null;
+        this.isFetchingScream = false;
+        this.screamUrl = "https://www.myinstants.com/media/sounds/ai-ai-ai-gemido.mp3";
+        this.fallbackScreamUrls = [
+            "https://www.myinstants.com/media/sounds/ai-ai-ai-gemido.mp3",
+            "https://www.myinstants.com/media/sounds/ai-ai-ai.mp3",
+            "https://www.myinstants.com/media/sounds/ai-ai-ai-grito.mp3"
+        ];
+        // Cấu hình âm thanh tự thiết kế cho 2 sự kiện: 'tap' (click) và 'evo' (tiến hóa)
+        this.customSlots = {
+            tap: { mode: 'default', label: 'Mặc định (Tiếng hét Goku)', buffer: null, dataUrl: null, volume: 1.0, synth: { preset: 'roar', pitch: 210, dur: 0.35, vibrato: 34, spark: 30 } },
+            evo: { mode: 'default', label: 'Mặc định (Bùng nổ Super Saiyan)', buffer: null, dataUrl: null, volume: 1.0, synth: { preset: 'roar', pitch: 260, dur: 1.35, vibrato: 40, spark: 90 } }
+        };
+    }
+
+    init() {
+        if (this.initialized) return;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        this.ctx = new AudioCtx();
+        this.auraOsc = this.ctx.createOscillator();
+        this.auraGain = this.ctx.createGain();
+        this.auraOsc.type = 'sawtooth';
+        this.auraOsc.frequency.value = 55;
+        this.auraGain.gain.value = 0.0001;
+        this.auraOsc.connect(this.auraGain);
+        this.auraGain.connect(this.ctx.destination);
+        this.auraOsc.start();
+        this.initialized = true;
+        this.loadScreamAudio();
+        this.loadCustomSoundsFromStorage();
+    }
+
+    async loadScreamAudio() {
+        if (this.isFetchingScream || this.screamBuffer) return;
+        this.isFetchingScream = true;
+
+        this.fallbackAudioPool = [];
+        this.fallbackIdx = 0;
+        for (let i = 0; i < 3; i++) {
+            const a = new Audio(this.screamUrl);
+            a.preload = 'auto';
+            a.crossOrigin = 'anonymous';
+            this.fallbackAudioPool.push(a);
+        }
+
+        for (const url of this.fallbackScreamUrls) {
+            try {
+                const resp = await fetch(url);
+                if (!resp.ok) continue;
+                const arrayBuf = await resp.arrayBuffer();
+                if (this.ctx) {
+                    this.screamBuffer = await this.ctx.decodeAudioData(arrayBuf);
+                    break;
+                }
+            } catch (e) {
+                // Bỏ qua nếu bị chặn CORS và dùng bộ tổng hợp dự phòng
+            }
+        }
+        this.isFetchingScream = false;
+    }
+
+    async setCustomAudioFromDataUrl(slot, dataUrl, label) {
+        if (!this.initialized) this.init();
+        try {
+            const resp = await fetch(dataUrl);
+            const arrBuf = await resp.arrayBuffer();
+            const decoded = await this.ctx.decodeAudioData(arrBuf);
+            this.customSlots[slot] = {
+                ...this.customSlots[slot],
+                mode: 'audio',
+                label: label,
+                buffer: decoded,
+                dataUrl: dataUrl,
+                volume: this.customSlots[slot].volume ?? 1.0
+            };
+            this.saveCustomSoundsToStorage();
+            return true;
+        } catch (e) {
+            console.warn("Lỗi giải mã âm thanh:", e);
+            return false;
+        }
+    }
+
+    setCustomSynth(slot, synthConfig, label) {
+        if (!this.initialized) this.init();
+        this.customSlots[slot] = {
+            ...this.customSlots[slot],
+            mode: 'synth',
+            label: label,
+            buffer: null,
+            dataUrl: null,
+            synth: { ...synthConfig }
+        };
+        this.saveCustomSoundsToStorage();
+    }
+
+    resetSlotToDefault(slot) {
+        this.customSlots[slot] = {
+            ...this.customSlots[slot],
+            mode: 'default',
+            label: slot === 'tap' ? 'Mặc định (Tiếng hét Goku)' : 'Mặc định (Bùng nổ Super Saiyan)',
+            buffer: null,
+            dataUrl: null,
+            volume: 1.0
+        };
+        this.saveCustomSoundsToStorage();
+    }
+
+    setSlotVolume(slot, volumeRatio) {
+        this.customSlots[slot].volume = Math.max(0, Math.min(2.0, volumeRatio));
+        this.saveCustomSoundsToStorage();
+    }
+
+    saveCustomSoundsToStorage() {
+        try {
+            const payload = {
+                tap: { mode: this.customSlots.tap.mode, label: this.customSlots.tap.label, dataUrl: this.customSlots.tap.dataUrl, volume: this.customSlots.tap.volume, synth: this.customSlots.tap.synth },
+                evo: { mode: this.customSlots.evo.mode, label: this.customSlots.evo.label, dataUrl: this.customSlots.evo.dataUrl, volume: this.customSlots.evo.volume, synth: this.customSlots.evo.synth }
+            };
+            localStorage.setItem('ssj_custom_sounds_v1', JSON.stringify(payload));
+        } catch (e) {
+            console.warn("File âm thanh quá lớn để lưu bộ nhớ đệm:", e);
+        }
+    }
+
+    async loadCustomSoundsFromStorage() {
+        try {
+            const raw = localStorage.getItem('ssj_custom_sounds_v1');
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            for (const slot of ['tap', 'evo']) {
+                if (!parsed[slot]) continue;
+                const savedVol = typeof parsed[slot].volume === 'number' ? parsed[slot].volume : 1.0;
+                this.customSlots[slot].volume = savedVol;
+                if (parsed[slot].mode === 'synth') {
+                    this.customSlots[slot] = { ...this.customSlots[slot], ...parsed[slot], volume: savedVol };
+                } else if (parsed[slot].mode === 'audio' && parsed[slot].dataUrl) {
+                    if (this.ctx) {
+                        await this.setCustomAudioFromDataUrl(slot, parsed[slot].dataUrl, parsed[slot].label);
+                    } else {
+                        this.customSlots[slot].mode = 'audio';
+                        this.customSlots[slot].label = parsed[slot].label;
+                        this.customSlots[slot].dataUrl = parsed[slot].dataUrl;
+                    }
+                }
+            }
+        } catch (e) {}
+    }
+
+    playBufferClip(buffer, playbackRate = 1.0, maxDuration = 2.5, volume = 0.9) {
+        if (!this.ctx || !buffer || this.muted) return false;
+        const now = this.ctx.currentTime;
+        const src = this.ctx.createBufferSource();
+        src.buffer = buffer;
+        src.playbackRate.value = playbackRate;
+
+        const safeVol = Math.max(0.001, volume);
+        const gainNode = this.ctx.createGain();
+        const dur = Math.min(maxDuration, buffer.duration / playbackRate);
+        gainNode.gain.setValueAtTime(safeVol, now);
+        gainNode.gain.setValueAtTime(safeVol, now + dur * 0.8);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+        src.connect(gainNode);
+        gainNode.connect(this.ctx.destination);
+        src.start(now, 0, Math.min(buffer.duration, maxDuration * playbackRate));
+        return true;
+    }
+
+    playCustomSynthConfig(cfg, rageBonus = 0) {
+        if (!this.ctx || this.muted) return;
+        const now = this.ctx.currentTime;
+        const basePitch = cfg.pitch * (1 + rageBonus * 0.22);
+        const dur = cfg.dur;
+
+        if (cfg.preset === 'roar' || cfg.preset === 'anime_scream') {
+            const endPitch = cfg.preset === 'anime_scream' ? basePitch * 1.45 : basePitch * 1.18;
+            this.triggerVocalScream(basePitch, endPitch, dur, 0.72, cfg.vibrato);
+        } else if (cfg.preset === 'energy_blast') {
+            const osc = this.ctx.createOscillator();
+            const g = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(basePitch * 1.8, now);
+            osc.frequency.exponentialRampToValueAtTime(42, now + dur);
+            g.gain.setValueAtTime(0.45, now);
+            g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+            osc.connect(g);
+            g.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + dur + 0.02);
+        } else if (cfg.preset === 'laser_charge') {
+            const osc = this.ctx.createOscillator();
+            const g = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(basePitch * 0.7, now);
+            osc.frequency.exponentialRampToValueAtTime(basePitch * 2.6, now + dur);
+            g.gain.setValueAtTime(0.42, now);
+            g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+            osc.connect(g);
+            g.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + dur + 0.02);
+        }
+
+        if (cfg.spark > 10) {
+            this.playSpark((cfg.spark / 100) * 0.28);
+        }
+    }
+
+    previewSlot(slot) {
+        if (!this.initialized) this.init();
+        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+        const item = this.customSlots[slot];
+        if (item.mode === 'audio' && item.buffer) {
+            const vol = typeof item.volume === 'number' ? item.volume : 1.0;
+            this.playBufferClip(item.buffer, 1.0, slot === 'evo' ? 4.0 : 1.5, vol);
+        } else if (item.mode === 'synth') {
+            this.playCustomSynthConfig(item.synth, 0);
+        } else {
+            if (slot === 'tap') this.playTap(55, false);
+            else this.playEvolution();
+        }
+    }
+
+    playRealScreamClip(ragePercent, isCrit = false, isEvolution = false) {
+        if (this.muted) return;
+        const norm = Math.min(1, Math.max(0, ragePercent / 100));
+        // Cao độ tăng dần theo thanh nộ (từ 0.96x lên 1.25x)
+        const playbackRate = isEvolution ? 1.05 : (isCrit ? 1.18 : (0.96 + norm * 0.24));
+        const duration = isEvolution ? 2.6 : (isCrit ? 1.1 : (0.65 + norm * 0.45));
+        const volume = isEvolution ? 0.98 : (isCrit ? 0.9 : (0.65 + norm * 0.3));
+
+        // Ưu tiên phát qua Web Audio Buffer (chồng âm mượt mà khi bấm liên tục)
+        if (this.screamBuffer && this.ctx) {
+            const now = this.ctx.currentTime;
+            const source = this.ctx.createBufferSource();
+            source.buffer = this.screamBuffer;
+            source.playbackRate.value = playbackRate;
+
+            const gainNode = this.ctx.createGain();
+            gainNode.gain.setValueAtTime(volume, now);
+            gainNode.gain.setValueAtTime(volume, now + duration * 0.75);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+            source.connect(gainNode);
+            gainNode.connect(this.ctx.destination);
+            const offset = 0.05;
+            source.start(now, offset, Math.min(duration, Math.max(0.2, this.screamBuffer.duration - offset)));
+            return true;
+        }
+
+        // Dự phòng qua HTML5 Audio Pool
+        if (this.fallbackAudioPool && this.fallbackAudioPool.length > 0) {
+            const audio = this.fallbackAudioPool[this.fallbackIdx];
+            this.fallbackIdx = (this.fallbackIdx + 1) % this.fallbackAudioPool.length;
+            try {
+                audio.pause();
+                audio.currentTime = 0.05;
+                audio.playbackRate = playbackRate;
+                audio.volume = Math.min(1, volume);
+                audio.play().catch(() => {});
+                if (!isEvolution) {
+                    setTimeout(() => {
+                        if (!audio.paused) audio.pause();
+                    }, duration * 1000);
+                }
+                return true;
+            } catch (e) {}
+        }
+        return false;
+    }
+
+    toggleMute() {
+        this.muted = !this.muted;
+        if (this.muted && this.auraGain && this.ctx) {
+            this.auraGain.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.05);
+        }
+        return this.muted;
+    }
+
+    updateAuraHum(ragePercent, stageIndex) {
+        if (!this.initialized || this.muted || !this.ctx) return;
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const now = this.ctx.currentTime;
+        const intensity = Math.min(1, (ragePercent / 100) + stageIndex * 0.15);
+        const targetFreq = 50 + intensity * 95;
+        const targetGain = ragePercent > 2 ? (0.015 + intensity * 0.045) : 0.0001;
+        this.auraOsc.frequency.setTargetAtTime(targetFreq, now, 0.08);
+        this.auraGain.gain.setTargetAtTime(targetGain, now, 0.08);
+    }
+
+    // Tạo giọng ré/hét nguyên âm "A" đa tầng cộng hưởng (Formant Synthesis)
+    triggerVocalScream(startFreq, endFreq, duration, volume, vibratoRate = 34) {
+        if (!this.ctx || this.muted) return;
+        const now = this.ctx.currentTime;
+
+        // Nguồn dây thanh quản (Glottal Pulse: kết hợp sóng răng cưa + xung vuông tạo độ khàn giọng hét)
+        const glottal1 = this.ctx.createOscillator();
+        const glottal2 = this.ctx.createOscillator();
+        glottal1.type = 'sawtooth';
+        glottal2.type = 'square';
+
+        glottal1.frequency.setValueAtTime(startFreq, now);
+        glottal1.frequency.exponentialRampToValueAtTime(endFreq, now + duration);
+
+        // Hài âm thấp tạo độ dày lồng ngực
+        glottal2.frequency.setValueAtTime(startFreq * 0.5, now);
+        glottal2.frequency.exponentialRampToValueAtTime(endFreq * 0.5, now + duration);
+
+        // Rung dây thanh quản (Vibrato gào thét)
+        const vibrato = this.ctx.createOscillator();
+        const vibratoGain = this.ctx.createGain();
+        vibrato.frequency.value = vibratoRate;
+        vibratoGain.gain.value = startFreq * 0.06;
+        vibrato.connect(vibratoGain);
+        vibratoGain.connect(glottal1.frequency);
+        vibratoGain.connect(glottal2.frequency);
+
+        // 3 bộ lọc Formant chuẩn của khẩu hình hét chữ "Á / A" (F1=800Hz, F2=1250Hz, F3=2600Hz)
+        const formants = [
+            { freq: 800, q: 4.5, gain: 1.0 },
+            { freq: 1250, q: 5.0, gain: 0.75 },
+            { freq: 2600, q: 6.0, gain: 0.45 }
+        ];
+
+        const masterVocalGain = this.ctx.createGain();
+        masterVocalGain.gain.setValueAtTime(0.001, now);
+        masterVocalGain.gain.linearRampToValueAtTime(volume, now + 0.02);
+        masterVocalGain.gain.setValueAtTime(volume * 0.9, now + duration * 0.65);
+        masterVocalGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+        formants.forEach(f => {
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(f.freq, now);
+            filter.frequency.linearRampToValueAtTime(f.freq * 1.12, now + duration);
+            filter.Q.value = f.q;
+
+            const fGain = this.ctx.createGain();
+            fGain.gain.value = f.gain;
+
+            glottal1.connect(filter);
+            glottal2.connect(filter);
+            filter.connect(fGain);
+            fGain.connect(masterVocalGain);
+        });
+
+        // Thêm tiếng hơi thoát ra (Breath Noise) cho giọng hét chân thực
+        const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+        const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            output[i] = Math.random() * 2 - 1;
+        }
+        const whiteNoise = this.ctx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+
+        const breathFilter = this.ctx.createBiquadFilter();
+        breathFilter.type = 'bandpass';
+        breathFilter.frequency.value = 1800;
+        breathFilter.Q.value = 1.5;
+
+        const breathGain = this.ctx.createGain();
+        breathGain.gain.setValueAtTime(volume * 0.22, now);
+        breathGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+        whiteNoise.connect(breathFilter);
+        breathFilter.connect(breathGain);
+        breathGain.connect(this.ctx.destination);
+
+        masterVocalGain.connect(this.ctx.destination);
+
+        glottal1.start(now);
+        glottal2.start(now);
+        vibrato.start(now);
+        whiteNoise.start(now);
+
+        glottal1.stop(now + duration + 0.02);
+        glottal2.stop(now + duration + 0.02);
+        vibrato.stop(now + duration + 0.02);
+        whiteNoise.stop(now + duration + 0.02);
+    }
+
+    // Tiếng đấm/gồng mỗi lần chạm màn hình
+    playTap(ragePercent, isCrit = false) {
+        if (!this.initialized) this.init();
+        if (this.muted || !this.ctx) return;
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+
+        const now = this.ctx.currentTime;
+        const norm = Math.min(1, Math.max(0, ragePercent / 100));
+
+        // 1. Tiếng va đập khí động học (Impact Punch)
+        const punchOsc = this.ctx.createOscillator();
+        const punchGain = this.ctx.createGain();
+        punchOsc.type = 'sine';
+        punchOsc.frequency.setValueAtTime(135 + norm * 55, now);
+        punchOsc.frequency.exponentialRampToValueAtTime(35, now + 0.1);
+        punchGain.gain.setValueAtTime(isCrit ? 0.25 : 0.15, now);
+        punchGain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+        punchOsc.connect(punchGain);
+        punchGain.connect(this.ctx.destination);
+        punchOsc.start(now);
+        punchOsc.stop(now + 0.12);
+
+        // 2. Kiểm tra xem người dùng có tự thiết kế âm thanh riêng cho sự kiện Click không
+        const tapSlot = this.customSlots.tap;
+        if (tapSlot.mode === 'audio' && tapSlot.buffer) {
+            const rate = isCrit ? 1.15 : (0.96 + norm * 0.22);
+            const vol = typeof tapSlot.volume === 'number' ? tapSlot.volume : 1.0;
+            this.playBufferClip(tapSlot.buffer, rate, 1.2, vol);
+        } else if (tapSlot.mode === 'synth') {
+            this.playCustomSynthConfig(tapSlot.synth, norm);
+        } else {
+            // Mặc định: Phát file âm thanh hét Goku hoặc bộ tổng hợp dự phòng
+            const playedReal = this.playRealScreamClip(ragePercent, isCrit, false);
+            if (!playedReal) {
+                const jitter = (Math.random() - 0.5) * 18;
+                const startPitch = isCrit ? 290 : (165 + norm * 145 + jitter);
+                const endPitch = startPitch * (isCrit ? 1.24 : (1.1 + norm * 0.14));
+                const screamDur = isCrit ? 0.42 : (0.22 + norm * 0.16);
+                const screamVol = isCrit ? 0.65 : (0.38 + norm * 0.25);
+                this.triggerVocalScream(startPitch, endPitch, screamDur, screamVol);
+            }
+        }
+
+        // 3. Nếu chạm trúng vòng tròn vàng (Crit) hoặc nộ > 70%, thêm tiếng tia sét xẹt
+        if (isCrit || ragePercent > 70) {
+            this.playSpark(isCrit ? 0.22 : 0.08);
+        }
+    }
+
+    // Tiếng tia sét xẹt điện
+    playSpark(volume = 0.12) {
+        if (!this.ctx || this.muted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(900 + Math.random() * 1400, now);
+        osc.frequency.exponentialRampToValueAtTime(180, now + 0.07);
+        gain.gain.setValueAtTime(volume, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.085);
+    }
+
+    // Tiếng nổ bùng phát & tiếng ré gào đột phá kéo dài khi Tiến Hóa lên Super Saiyan
+    playEvolution() {
+        if (!this.initialized) this.init();
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+
+        // 1. Kiểm tra âm thanh tự thiết kế cho sự kiện Tiến Hóa
+        const evoSlot = this.customSlots.evo;
+        if (evoSlot.mode === 'audio' && evoSlot.buffer) {
+            const vol = typeof evoSlot.volume === 'number' ? evoSlot.volume : 1.0;
+            this.playBufferClip(evoSlot.buffer, 1.0, 4.5, vol);
+        } else if (evoSlot.mode === 'synth') {
+            this.playCustomSynthConfig(evoSlot.synth, 0.2);
+        } else {
+            const playedReal = this.playRealScreamClip(100, true, true);
+            if (!playedReal) {
+                this.triggerVocalScream(240, 390, 1.25, 0.78);
+            }
+        }
+
+        // 2. Tiếng nổ trầm uy lực
+        const subOsc = this.ctx.createOscillator();
+        const subGain = this.ctx.createGain();
+        subOsc.type = 'sawtooth';
+        subOsc.frequency.setValueAtTime(140, now);
+        subOsc.frequency.exponentialRampToValueAtTime(28, now + 0.85);
+        subGain.gain.setValueAtTime(0.42, now);
+        subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+        subOsc.connect(subGain);
+        subGain.connect(this.ctx.destination);
+        subOsc.start(now);
+        subOsc.stop(now + 0.92);
+
+        // 3. Hợp âm hào hùng vang lên
+        const freqs = [261.63, 329.63, 392.00, 523.25];
+        freqs.forEach((f, idx) => {
+            const osc = this.ctx.createOscillator();
+            const g = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(f, now + idx * 0.04);
+            g.gain.setValueAtTime(0.001, now);
+            g.gain.linearRampToValueAtTime(0.14, now + 0.08 + idx * 0.04);
+            g.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
+            osc.connect(g);
+            g.connect(this.ctx.destination);
+            osc.start(now + idx * 0.04);
+            osc.stop(now + 1.15);
+        });
+    }
+}
+
+/**
+ * ============================================================================
+ * 2. DỮ LIỆU CÁC CẤP ĐỘ BIẾN HÌNH (GOKU MẶC ĐỊNH + BẢNG MÀU HÀO QUANG)
+ * ============================================================================
+ */
+const AURA_THEMES = {
+    gold: {
+        hairColor: "#facc15", hairHighlight: "#fef08a", eyeColor: "#10b981",
+        auraInner: "rgba(254, 240, 138, 0.85)", auraOuter: "rgba(245, 158, 11, 0.45)",
+        lightningColor: "#fef08a", skyTop: "#1c1917", skyBottom: "#451a03", dotColor: "#facc15"
+    },
+    blue: {
+        hairColor: "#06b6d4", hairHighlight: "#a5f3fc", eyeColor: "#22d3ee",
+        auraInner: "rgba(165, 243, 252, 0.9)", auraOuter: "rgba(2, 132, 199, 0.55)",
+        lightningColor: "#e0f2fe", skyTop: "#041224", skyBottom: "#0c4a6e", dotColor: "#22d3ee"
+    },
+    red: {
+        hairColor: "#ef4444", hairHighlight: "#fca5a5", eyeColor: "#f87171",
+        auraInner: "rgba(254, 202, 202, 0.88)", auraOuter: "rgba(220, 38, 38, 0.55)",
+        lightningColor: "#fca5a5", skyTop: "#1f0808", skyBottom: "#450a0a", dotColor: "#ef4444"
+    },
+    purple: {
+        hairColor: "#a855f7", hairHighlight: "#e9d5ff", eyeColor: "#c084fc",
+        auraInner: "rgba(243, 232, 255, 0.88)", auraOuter: "rgba(147, 51, 234, 0.55)",
+        lightningColor: "#e9d5ff", skyTop: "#160824", skyBottom: "#3b0764", dotColor: "#a855f7"
+    },
+    silver: {
+        hairColor: "#e2e8f0", hairHighlight: "#ffffff", eyeColor: "#cbd5e1",
+        auraInner: "rgba(255, 255, 255, 0.92)", auraOuter: "rgba(148, 163, 184, 0.5)",
+        lightningColor: "#ffffff", skyTop: "#090d16", skyBottom: "#1e293b", dotColor: "#e2e8f0"
+    },
+    green: {
+        hairColor: "#22c55e", hairHighlight: "#bbf7d0", eyeColor: "#4ade80",
+        auraInner: "rgba(220, 252, 231, 0.9)", auraOuter: "rgba(22, 163, 74, 0.55)",
+        lightningColor: "#bbf7d0", skyTop: "#051b11", skyBottom: "#064e3b", dotColor: "#22c55e"
+    }
+};
+
+const DEFAULT_GOKU_STAGES = [
+    {
+        id: 0,
+        name: "Goku (Trạng Thái Thường)",
+        shortName: "Trạng Thái Thường",
+        hairColor: "#111827",
+        hairHighlight: "#374151",
+        eyeColor: "#111827",
+        auraInner: "rgba(255, 255, 255, 0.55)",
+        auraOuter: "rgba(186, 230, 253, 0.25)",
+        lightningColor: "#ffffff",
+        hairStyle: "base",
+        bpMultiplier: 1,
+        decayRate: 3.5,
+        skyTop: "#0f172a",
+        skyBottom: "#1e293b",
+        dotColor: "#94a3b8"
+    },
+    {
+        id: 1,
+        name: "Super Saiyan",
+        shortName: "Super Saiyan",
+        hairColor: "#facc15",
+        hairHighlight: "#fef08a",
+        eyeColor: "#10b981",
+        auraInner: "rgba(254, 240, 138, 0.85)",
+        auraOuter: "rgba(245, 158, 11, 0.45)",
+        lightningColor: "#fef08a",
+        hairStyle: "ssj1",
+        bpMultiplier: 50,
+        decayRate: 5.5,
+        skyTop: "#1c1917",
+        skyBottom: "#451a03",
+        dotColor: "#facc15"
+    },
+    {
+        id: 2,
+        name: "Super Saiyan 2",
+        shortName: "Super Saiyan 2",
+        hairColor: "#fde047",
+        hairHighlight: "#ffffff",
+        eyeColor: "#10b981",
+        auraInner: "rgba(255, 255, 255, 0.9)",
+        auraOuter: "rgba(234, 179, 8, 0.55)",
+        lightningColor: "#38bdf8",
+        hairStyle: "ssj2",
+        bpMultiplier: 100,
+        decayRate: 7.5,
+        skyTop: "#090d16",
+        skyBottom: "#3b2305",
+        dotColor: "#38bdf8"
+    },
+    {
+        id: 3,
+        name: "Super Saiyan 3",
+        shortName: "Super Saiyan 3",
+        hairColor: "#facc15",
+        hairHighlight: "#fef9c3",
+        eyeColor: "#059669",
+        auraInner: "rgba(254, 249, 195, 0.95)",
+        auraOuter: "rgba(249, 115, 22, 0.6)",
+        lightningColor: "#60a5fa",
+        hairStyle: "ssj3",
+        bpMultiplier: 400,
+        decayRate: 9.5,
+        skyTop: "#140c1c",
+        skyBottom: "#4a1d05",
+        dotColor: "#fb923c"
+    },
+    {
+        id: 4,
+        name: "Super Saiyan Blue",
+        shortName: "SSJ Blue (Thần Khí)",
+        hairColor: "#06b6d4",
+        hairHighlight: "#a5f3fc",
+        eyeColor: "#22d3ee",
+        auraInner: "rgba(165, 243, 252, 0.9)",
+        auraOuter: "rgba(2, 132, 199, 0.55)",
+        lightningColor: "#e0f2fe",
+        hairStyle: "ssj1",
+        bpMultiplier: 2500,
+        decayRate: 11.0,
+        skyTop: "#041224",
+        skyBottom: "#0c4a6e",
+        dotColor: "#22d3ee"
+    }
+];
+
+let STAGES = [...DEFAULT_GOKU_STAGES];
+let activeCharacterId = 'goku_default';
+let customCharacters = [];
+const loadedImageCache = {};
+
+/**
+ * ============================================================================
+ * 3. TRẠNG THÁI GAME & LOGIC CHÍNH
+ * ============================================================================
+ */
+const state = {
+    ki: 0,
+    totalKiEarned: 0,
+    stageIndex: 0,
+    rage: 0,
+    zenkaiCount: 0,
+    lastTapTime: 0,
+    isChargingPose: false,
+    upgrades: {
+        tap: 1,
+        auto: 0,
+        crit: 1
+    },
+    shakeIntensity: 0,
+    flashAlpha: 0,
+    charScaleX: 1,
+    charScaleY: 1,
+    particles: [],
+    floatingTexts: [],
+    shockwaves: [],
+    rocks: [],
+    lightningBolts: [],
+    critRing: {
+        active: false,
+        radius: 130,
+        targetRadius: 48,
+        speed: 85,
+        cooldown: 4.5
+    }
+};
+
+const sound = new SoundEngine();
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const wrapper = document.getElementById('canvas-wrapper');
+
+function formatNumber(num) {
+    if (num < 1000) return Math.floor(num).toLocaleString('vi-VN');
+    const suffixes = ["", "K", "M", "B", "T", "Qa"];
+    const tier = Math.floor(Math.log10(num) / 3);
+    if (tier >= suffixes.length) return num.toExponential(2);
+    const scale = Math.pow(10, tier * 3);
+    const scaled = num / scale;
+    return scaled.toFixed(scaled < 10 ? 2 : 1) + suffixes[tier];
+}
+
+function getUpgradeCost(type) {
+    const lvl = state.upgrades[type];
+    if (type === 'tap') return Math.floor(15 * Math.pow(1.48, lvl - 1));
+    if (type === 'auto') return Math.floor(30 * Math.pow(1.55, lvl));
+    if (type === 'crit') return Math.floor(50 * Math.pow(1.6, lvl - 1));
+    return 100;
+}
+
+function getTapPowerPercent() {
+    const baseGain = 4.2;
+    const stageResistance = 1 + state.stageIndex * 0.22;
+    return Math.min(28, baseGain / stageResistance);
+}
+
+function getKiPerTap() {
+    const zenkaiMult = Math.pow(2, state.zenkaiCount);
+    const stageMult = 1 + state.stageIndex * 1.5;
+    return 10 * stageMult * zenkaiMult;
+}
+
+function getAutoChargePerSec() {
+    return 0;
+}
+
+function getCritMultiplier() {
+    return 2.0;
+}
+
+function resizeCanvas() {
+    const rect = wrapper.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function updateUI() {
+    const stage = STAGES[state.stageIndex];
+    const nextStage = STAGES[state.stageIndex + 1];
+    const zenkaiMult = Math.pow(2, state.zenkaiCount);
+
+    document.getElementById('ui-ki-amount').textContent = formatNumber(state.ki);
+    const currentBP = Math.floor((1000 + state.totalKiEarned * 12) * stage.bpMultiplier * zenkaiMult);
+    document.getElementById('ui-bp-amount').textContent = formatNumber(currentBP);
+
+    document.getElementById('ui-stage-name').textContent = stage.shortName;
+    document.getElementById('ui-stage-dot').style.backgroundColor = stage.dotColor;
+    document.getElementById('ui-multiplier-badge').textContent = `x${(stage.bpMultiplier * zenkaiMult).toLocaleString('vi-VN')} Sức Mạnh`;
+
+    const rageRounded = Math.min(100, Math.floor(state.rage));
+    document.getElementById('ui-gauge-percent').textContent = `${rageRounded}%`;
+    document.getElementById('ui-gauge-bar').style.width = `${state.rage}%`;
+
+    const hintEl = document.getElementById('ui-next-form-hint');
+    if (nextStage) {
+        hintEl.innerHTML = `Chạm liên tục để gồng lên <span class="text-amber-400 font-bold">${nextStage.shortName}</span>!`;
+    } else {
+        hintEl.innerHTML = `Đã đạt <span class="text-cyan-300 font-bold">CỰC HẠN</span>! Chạm tiếp để bùng nổ sức mạnh!`;
+    }
+
+    const zenkaiBtn = document.getElementById('btn-zenkai');
+    if (state.stageIndex >= 2) {
+        zenkaiBtn.classList.remove('hidden');
+    } else {
+        zenkaiBtn.classList.add('hidden');
+    }
+}
+
+/**
+ * ============================================================================
+ * 4. VẼ BỐI CẢNH BẦU TRỜI, NÚI ĐÁ & MẶT ĐẤT RUNG CHUYỂN (PARALLAX EARTHQUAKE)
+ * ============================================================================
+ */
+const bgClouds = Array.from({ length: 7 }, (_, i) => ({
+    x: (i / 7) * 1.2 - 0.1,
+    y: 0.08 + (i % 3) * 0.075,
+    scale: 0.75 + (i % 4) * 0.25,
+    speed: 0.008 + (i % 3) * 0.005
+}));
+
+function drawWorldBackground(ctx, w, h, cx, cy, stage, timeSec) {
+    const rageRatio = Math.min(1, state.rage / 100);
+    const quakePower = state.shakeIntensity + (state.isChargingPose ? rageRatio * 5 : 0);
+
+    // 1. Bầu trời chuyển sắc theo cấp độ biến hình (chiếm 2/3 khung hình phía trên)
+    const skyShakeY = (Math.random() - 0.5) * quakePower * 0.25;
+    const bgGrad = ctx.createLinearGradient(0, skyShakeY, 0, h);
+    bgGrad.addColorStop(0, stage.skyTop);
+    bgGrad.addColorStop(0.66, stage.skyBottom);
+    bgGrad.addColorStop(1, "#090a0f");
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Chớp sáng trên bầu trời khi gồng mạnh (>70%) hoặc vừa tiến hóa
+    if ((rageRatio > 0.72 && Math.random() < 0.14) || state.flashAlpha > 0.35) {
+        ctx.fillStyle = stage.auraOuter;
+        ctx.fillRect(0, 0, w, h * 0.68);
+    }
+
+    // Vầng hào quang chiếu rọi lên bầu trời phía sau nhân vật
+    const skyGlow = ctx.createRadialGradient(cx, cy - 30, 15, cx, cy - 30, Math.max(w, h) * 0.78);
+    skyGlow.addColorStop(0, stage.auraOuter);
+    skyGlow.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = skyGlow;
+    ctx.fillRect(0, 0, w, h);
+
+    // 2. Đám mây dông cuồn cuộn trên trời
+    const cloudShakeX = (Math.random() - 0.5) * quakePower * 0.45;
+    const cloudShakeY = (Math.random() - 0.5) * quakePower * 0.45;
+    ctx.save();
+    ctx.translate(cloudShakeX, cloudShakeY);
+    bgClouds.forEach((cl, idx) => {
+        const scrollX = ((cl.x + timeSec * cl.speed * (1 + rageRatio * 2.5)) % 1.35) - 0.18;
+        const px = scrollX * w;
+        const py = cl.y * h;
+        const r = 46 * cl.scale;
+
+        ctx.fillStyle = idx % 2 === 0 ? "rgba(15, 23, 42, 0.52)" : "rgba(30, 41, 59, 0.42)";
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.arc(px + r * 0.75, py - r * 0.15, r * 0.82, 0, Math.PI * 2);
+        ctx.arc(px - r * 0.7, py + r * 0.1, r * 0.72, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.restore();
+
+    // Đường chân trời mặt đất đặt chuẩn ở bố cục 1/3 dưới (cy + 115)
+    const groundY = cy + 115;
+
+    // 3. Dãy núi đá phía xa (lớp Parallax chậm)
+    const farMtnShakeX = (Math.random() - 0.5) * quakePower * 0.65;
+    const farMtnShakeY = (Math.random() - 0.5) * quakePower * 0.65;
+    ctx.save();
+    ctx.translate(farMtnShakeX, farMtnShakeY);
+    ctx.fillStyle = "rgba(15, 23, 42, 0.78)";
+    ctx.beginPath();
+    ctx.moveTo(-30, groundY + 15);
+    ctx.lineTo(w * 0.12, groundY - 125);
+    ctx.lineTo(w * 0.28, groundY - 65);
+    ctx.lineTo(w * 0.48, groundY - 165);
+    ctx.lineTo(w * 0.68, groundY - 75);
+    ctx.lineTo(w * 0.86, groundY - 140);
+    ctx.lineTo(w + 30, groundY - 50);
+    ctx.lineTo(w + 30, groundY + 15);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // 4. Dãy núi đá dựng đứng đặc trưng Dragon Ball phía gần (rung lắc mạnh)
+    const nearMtnShakeX = (Math.random() - 0.5) * quakePower * 1.05;
+    const nearMtnShakeY = (Math.random() - 0.5) * quakePower * 1.05;
+    ctx.save();
+    ctx.translate(nearMtnShakeX, nearMtnShakeY);
+    ctx.fillStyle = "#111827";
+    ctx.beginPath();
+    ctx.moveTo(-40, groundY + 20);
+    ctx.lineTo(w * 0.06, groundY - 95);
+    ctx.lineTo(w * 0.16, groundY - 90);
+    ctx.lineTo(w * 0.24, groundY - 25);
+    ctx.lineTo(w * 0.76, groundY - 25);
+    ctx.lineTo(w * 0.84, groundY - 105);
+    ctx.lineTo(w * 0.94, groundY - 98);
+    ctx.lineTo(w + 40, groundY + 20);
+    ctx.closePath();
+    ctx.fill();
+
+    // Đường viền sáng phản chiếu hào quang lên vách núi
+    ctx.strokeStyle = stage.auraOuter;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+
+    // 5. Mặt đất hẻm núi & vết nứt năng lượng dưới chân nhân vật (1/3 dưới)
+    const groundShakeX = (Math.random() - 0.5) * quakePower * 1.35;
+    const groundShakeY = (Math.random() - 0.5) * quakePower * 1.35;
+    ctx.save();
+    ctx.translate(groundShakeX, groundShakeY);
+
+    const earthGrad = ctx.createLinearGradient(0, groundY - 10, 0, h + 30);
+    earthGrad.addColorStop(0, "#1f2937");
+    earthGrad.addColorStop(0.25, "#111827");
+    earthGrad.addColorStop(1, "#030712");
+    ctx.fillStyle = earthGrad;
+    ctx.fillRect(-40, groundY - 6, w + 80, h - groundY + 50);
+
+    // Đường chân trời mặt đất
+    ctx.strokeStyle = "rgba(148, 163, 184, 0.35)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-40, groundY - 6);
+    ctx.lineTo(w + 40, groundY - 6);
+    ctx.stroke();
+
+    // Các vết nứt phát sáng trên mặt đất khi gồng nộ
+    if (rageRatio > 0.15 || state.stageIndex > 0) {
+        ctx.strokeStyle = stage.hairColor;
+        ctx.lineWidth = 1.8 + rageRatio * 2.2;
+        ctx.globalAlpha = 0.35 + rageRatio * 0.65;
+        const crackOffsets = [-115, -60, 58, 118];
+        crackOffsets.forEach((off, idx) => {
+            ctx.beginPath();
+            ctx.moveTo(cx + off * 0.4, groundY + 2);
+            ctx.lineTo(cx + off, groundY + 22 + (idx % 2) * 12);
+            ctx.lineTo(cx + off * 1.35, groundY + 46);
+            ctx.stroke();
+        });
+        ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+}
+
+let lastFrameTime = performance.now();
+function gameLoop(now) {
+    const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
+    lastFrameTime = now;
+    const timeSec = now / 1000;
+
+    const rect = wrapper.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+    const cx = w / 2;
+    // Bố cục 1/3: đặt tâm nhân vật ở vị trí 64% chiều cao (chân đứng tại 1/3 dưới màn hình)
+    const cy = h * 0.64;
+    const stage = STAGES[state.stageIndex];
+
+    // Cập nhật giảm thanh nộ nếu ngừng chạm quá lâu
+    const idleTime = (now - state.lastTapTime) / 1000;
+    if (idleTime > 0.45) {
+        state.isChargingPose = false;
+        if (state.rage > 0) {
+            state.rage = Math.max(0, state.rage - stage.decayRate * dt);
+            updateUI();
+        }
+    }
+
+    // Hồi phục co giãn nhân vật & giảm rung lắc
+    state.charScaleX += (1 - state.charScaleX) * Math.min(1, dt * 14);
+    state.charScaleY += (1 - state.charScaleY) * Math.min(1, dt * 14);
+    state.shakeIntensity = Math.max(0, state.shakeIntensity - dt * 28);
+    state.flashAlpha = Math.max(0, state.flashAlpha - dt * 2.2);
+
+    sound.updateAuraHum(state.rage, state.stageIndex);
+
+    // Sinh tia sét ngẫu nhiên khi nộ cao hoặc ở cấp Super Saiyan 2 trở lên
+    if ((state.rage > 75 && Math.random() < 0.25) || (state.stageIndex >= 2 && Math.random() < 0.16)) {
+        spawnLightning(cx, cy - 10, 1, stage.lightningColor);
+    }
+
+    // Vòng tròn chí mạng (Z-Timing)
+    if (!state.critRing.active) {
+        state.critRing.cooldown -= dt;
+        if (state.critRing.cooldown <= 0 && state.rage > 8 && state.rage < 92) {
+            state.critRing.active = true;
+            state.critRing.radius = 135;
+        }
+    } else {
+        state.critRing.radius -= state.critRing.speed * dt;
+        if (state.critRing.radius < 22) {
+            state.critRing.active = false;
+            state.critRing.cooldown = 4.2;
+        }
+    }
+
+    // Vẽ nền trời, núi đá, mặt đất với hiệu ứng rung chuyển nhiều lớp
+    drawWorldBackground(ctx, w, h, cx, cy, stage, timeSec);
+
+    ctx.save();
+    if (state.shakeIntensity > 0.2) {
+        const sx = (Math.random() - 0.5) * state.shakeIntensity * 1.15;
+        const sy = (Math.random() - 0.5) * state.shakeIntensity * 1.15;
+        ctx.translate(sx, sy);
+    }
+
+    const groundY = cy + 115;
+
+    // Đá sỏi bay lơ lửng khi gồng nộ
+    if ((state.isChargingPose || state.rage > 45) && state.rocks.length < 12 && Math.random() < 0.32) {
+        state.rocks.push({
+            x: cx + (Math.random() - 0.5) * 240,
+            y: groundY,
+            vy: -45 - Math.random() * 75,
+            size: 4 + Math.random() * 6,
+            rot: Math.random() * Math.PI,
+            vRot: (Math.random() - 0.5) * 6,
+            life: 1.4
+        });
+    }
+
+    for (let i = state.rocks.length - 1; i >= 0; i--) {
+        const rk = state.rocks[i];
+        rk.y += rk.vy * dt;
+        rk.rot += rk.vRot * dt;
+        rk.life -= dt;
+        if (rk.life <= 0) {
+            state.rocks.splice(i, 1);
+            continue;
+        }
+        ctx.save();
+        ctx.translate(rk.x, rk.y);
+        ctx.rotate(rk.rot);
+        ctx.fillStyle = "#475569";
+        ctx.fillRect(-rk.size / 2, -rk.size / 2, rk.size, rk.size * 0.8);
+        ctx.restore();
+    }
+
+    // Vẽ hào quang & nhân vật
+    drawAura(ctx, cx, cy, stage, timeSec);
+    drawGokuCharacter(ctx, cx, cy, stage, timeSec);
+
+    // Vẽ vòng tròn chí mạng Z-Timing
+    if (state.critRing.active) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(74, 222, 128, 0.45)";
+        ctx.lineWidth = 3;
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath();
+        ctx.arc(cx, cy - 15, state.critRing.targetRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+        ctx.strokeStyle = "#fde047";
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(cx, cy - 15, state.critRing.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // Vẽ tia sét
+    for (let i = state.lightningBolts.length - 1; i >= 0; i--) {
+        const bolt = state.lightningBolts[i];
+        bolt.alpha -= dt * 4.5;
+        if (bolt.alpha <= 0) {
+            state.lightningBolts.splice(i, 1);
+            continue;
+        }
+        ctx.save();
+        ctx.strokeStyle = bolt.color;
+        ctx.globalAlpha = bolt.alpha;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        bolt.segments.forEach((pt, idx) => {
+            if (idx === 0) ctx.moveTo(pt.x, pt.y);
+            else ctx.lineTo(pt.x, pt.y);
+        });
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // Vẽ sóng xung kích (Shockwaves)
+    for (let i = state.shockwaves.length - 1; i >= 0; i--) {
+        const sw = state.shockwaves[i];
+        sw.radius += (sw.maxRadius - sw.radius) * Math.min(1, dt * 8);
+        sw.alpha -= dt * 1.8;
+        if (sw.alpha <= 0) {
+            state.shockwaves.splice(i, 1);
+            continue;
+        }
+        ctx.save();
+        ctx.strokeStyle = sw.color;
+        ctx.globalAlpha = sw.alpha;
+        ctx.lineWidth = 5 * sw.alpha;
+        ctx.beginPath();
+        ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // Vẽ hạt năng lượng (Particles)
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+        const p = state.particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= dt;
+        if (p.life <= 0) {
+            state.particles.splice(i, 1);
+            continue;
+        }
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Vẽ chữ bay (+Ki / Chí Mạng)
+    for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
+        const ft = state.floatingTexts[i];
+        ft.y += ft.vy * dt;
+        ft.life -= dt;
+        if (ft.life <= 0) {
+            state.floatingTexts.splice(i, 1);
+            continue;
+        }
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, ft.life * 1.4);
+        ctx.font = ft.isBig ? "900 18px 'Chakra Petch', sans-serif" : "700 15px 'Chakra Petch', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#000000";
+        ctx.fillText(ft.text, ft.x + 1.5, ft.y + 1.5);
+        ctx.fillStyle = ft.color;
+        ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.restore();
+    }
+
+    ctx.restore();
+
+    // Lóe sáng toàn màn hình khi biến hình
+    if (state.flashAlpha > 0) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${state.flashAlpha})`;
+        ctx.fillRect(0, 0, w, h);
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+/**
+ * ============================================================================
+ * 5. HÀM VẼ NHÂN VẬT, HÀO QUANG & XỬ LÝ TƯƠNG TÁC CHẠM
+ * ============================================================================
+ */
+function drawAura(ctx, cx, cy, stage, timeSec) {
+    const rageRatio = Math.min(1, state.rage / 100);
+    if (rageRatio <= 0.03 && state.stageIndex === 0) return;
+
+    const intensity = Math.max(rageRatio, state.stageIndex > 0 ? 0.55 + state.stageIndex * 0.1 : 0);
+    const baseRadius = 102 + intensity * 92;
+    const pulse = Math.sin(timeSec * 22) * 11 * intensity;
+
+    ctx.save();
+    ctx.translate(cx, cy - 16);
+
+    // Hào quang ngoài
+    const outerGrad = ctx.createRadialGradient(0, 0, 15, 0, 0, baseRadius + pulse + 30);
+    outerGrad.addColorStop(0, stage.auraInner);
+    outerGrad.addColorStop(0.55, stage.auraOuter);
+    outerGrad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = outerGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, (baseRadius + pulse) * 0.95, (baseRadius + pulse) * 1.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Các ngọn lửa Ki bốc lên
+    const flameCount = 14 + state.stageIndex * 4;
+    for (let i = 0; i < flameCount; i++) {
+        const angle = (i / flameCount) * Math.PI * 2 + timeSec * 3;
+        const fx = Math.cos(angle) * (baseRadius * 0.45);
+        const fy = Math.sin(angle) * (baseRadius * 0.65) - ((timeSec * 140 + i * 25) % 85);
+        const fSize = (10 + intensity * 16) * (1 - ((timeSec * 140 + i * 25) % 85) / 95);
+        if (fSize <= 1) continue;
+
+        ctx.fillStyle = i % 2 === 0 ? stage.auraInner : stage.auraOuter;
+        ctx.beginPath();
+        ctx.moveTo(fx - fSize * 0.6, fy + fSize);
+        ctx.quadraticCurveTo(fx, fy - fSize * 1.6, fx + fSize * 0.6, fy + fSize);
+        ctx.closePath();
+        ctx.fill();
+    }
+    ctx.restore();
+}
+
+function drawGokuCharacter(ctx, cx, cy, stage, timeSec) {
+    const rageRatio = Math.min(1, state.rage / 100);
+    const jitterX = state.isChargingPose ? (Math.random() - 0.5) * (4 + rageRatio * 9) : 0;
+    const jitterY = state.isChargingPose ? (Math.random() - 0.5) * (3 + rageRatio * 7) : 0;
+
+    ctx.save();
+    ctx.translate(cx + jitterX, cy + jitterY);
+    // Phóng to nhân vật lên 1.95x cho hoành tráng và dễ chạm trên điện thoại
+    ctx.scale(state.charScaleX * 1.95, state.charScaleY * 1.95);
+    // Nếu là nhân vật tùy chỉnh (ảnh vẽ hoặc ảnh tải lên)
+    if (stage.customImageData) {
+        let img = loadedImageCache[stage.customImageData];
+        if (!img) {
+            img = new Image();
+            img.src = stage.customImageData;
+            loadedImageCache[stage.customImageData] = img;
+        }
+        if (img.complete && img.naturalWidth > 0) {
+            const drawSize = 155;
+            ctx.drawImage(img, -drawSize / 2, -drawSize * 0.62, drawSize, drawSize);
+            ctx.restore();
+            return;
+        }
+    }
+
+    // Hiệu ứng tóc nhấp nháy vàng/đen ở ngưỡng 72%-99% khi chuẩn bị lên Super Saiyan
+    let hairColor = stage.hairColor;
+    let hairHighlight = stage.hairHighlight;
+    let eyeColor = stage.eyeColor;
+    let hairStyle = stage.hairStyle;
+
+    if (state.stageIndex === 0 && state.rage > 72 && Math.floor(timeSec * 18) % 2 === 0) {
+        hairColor = "#facc15";
+        hairHighlight = "#fef08a";
+        eyeColor = "#10b981";
+        hairStyle = "ssj1";
+    }
+
+    const crouchY = state.isChargingPose ? 6 : Math.sin(timeSec * 3.5) * 2;
+
+    // Bóng dưới chân
+    ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+    ctx.beginPath();
+    ctx.ellipse(0, 62, 34, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tóc dài sau lưng cho SSJ3
+    if (hairStyle === "ssj3") {
+        ctx.fillStyle = hairColor;
+        ctx.beginPath();
+        ctx.moveTo(-22, -35 + crouchY);
+        ctx.lineTo(-34, 38 + crouchY);
+        ctx.lineTo(-14, 52 + crouchY);
+        ctx.lineTo(0, 44 + crouchY);
+        ctx.lineTo(14, 52 + crouchY);
+        ctx.lineTo(34, 38 + crouchY);
+        ctx.lineTo(22, -35 + crouchY);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // Chân & Giày võ phục
+    ctx.fillStyle = "#ea580c";
+    ctx.beginPath();
+    ctx.roundRect(-22, 18 + crouchY * 0.5, 16, 32, 6);
+    ctx.roundRect(6, 18 + crouchY * 0.5, 16, 32, 6);
+    ctx.fill();
+
+    ctx.fillStyle = "#1d4ed8";
+    ctx.beginPath();
+    ctx.roundRect(-23, 44, 18, 16, 5);
+    ctx.roundRect(5, 44, 18, 16, 5);
+    ctx.fill();
+
+    // Thân áo võ phục cam & áo lót xanh
+    ctx.fillStyle = "#1d4ed8";
+    ctx.beginPath();
+    ctx.roundRect(-21, -18 + crouchY, 42, 38, 10);
+    ctx.fill();
+
+    ctx.fillStyle = "#f97316";
+    ctx.beginPath();
+    ctx.moveTo(-21, -16 + crouchY);
+    ctx.lineTo(-7, -16 + crouchY);
+    ctx.lineTo(0, -2 + crouchY);
+    ctx.lineTo(7, -16 + crouchY);
+    ctx.lineTo(21, -16 + crouchY);
+    ctx.lineTo(23, 22 + crouchY);
+    ctx.lineTo(-23, 22 + crouchY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Đai lưng xanh
+    ctx.fillStyle = "#1e40af";
+    ctx.fillRect(-22, 14 + crouchY, 44, 7);
+
+    // Hai cánh tay gồng cơ bắp
+    const armSpread = state.isChargingPose ? 6 : 0;
+    ctx.fillStyle = "#fdba74";
+    ctx.beginPath();
+    ctx.roundRect(-34 - armSpread, -12 + crouchY, 13, 28, 6);
+    ctx.roundRect(21 + armSpread, -12 + crouchY, 13, 28, 6);
+    ctx.fill();
+
+    // Băng cổ tay xanh
+    ctx.fillStyle = "#1d4ed8";
+    ctx.fillRect(-34 - armSpread, 8 + crouchY, 13, 6);
+    ctx.fillRect(21 + armSpread, 8 + crouchY, 13, 6);
+
+    // Đầu & Khuôn mặt
+    ctx.fillStyle = "#fdba74";
+    ctx.beginPath();
+    ctx.roundRect(-15, -45 + crouchY, 30, 28, 11);
+    ctx.fill();
+
+    // Mắt & Lông mày
+    ctx.fillStyle = eyeColor;
+    ctx.fillRect(-10, -33 + crouchY, 6, 4);
+    ctx.fillRect(4, -33 + crouchY, 6, 4);
+
+    ctx.strokeStyle = hairColor;
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(-12, -36 + crouchY);
+    ctx.lineTo(-3, -33 + crouchY);
+    ctx.moveTo(12, -36 + crouchY);
+    ctx.lineTo(3, -33 + crouchY);
+    ctx.stroke();
+
+    // Miệng gào thét khi gồng
+    if (state.isChargingPose || state.rage > 60) {
+        ctx.fillStyle = "#7f1d1d";
+        ctx.beginPath();
+        ctx.ellipse(0, -23 + crouchY, 6, 4.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+    } else {
+        ctx.strokeStyle = "#7c2d12";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-5, -24 + crouchY);
+        ctx.lineTo(5, -24 + crouchY);
+        ctx.stroke();
+    }
+
+    // Mái tóc đặc trưng theo cấp độ
+    ctx.fillStyle = hairColor;
+    ctx.beginPath();
+    if (hairStyle === "base") {
+        ctx.moveTo(-18, -38 + crouchY);
+        ctx.lineTo(-34, -44 + crouchY);
+        ctx.lineTo(-22, -52 + crouchY);
+        ctx.lineTo(-32, -64 + crouchY);
+        ctx.lineTo(-12, -60 + crouchY);
+        ctx.lineTo(0, -72 + crouchY);
+        ctx.lineTo(14, -60 + crouchY);
+        ctx.lineTo(32, -62 + crouchY);
+        ctx.lineTo(22, -50 + crouchY);
+        ctx.lineTo(34, -42 + crouchY);
+        ctx.lineTo(17, -38 + crouchY);
+        ctx.lineTo(6, -34 + crouchY);
+        ctx.lineTo(0, -40 + crouchY);
+        ctx.lineTo(-6, -34 + crouchY);
+    } else {
+        // Tóc dựng đứng Super Saiyan
+        const spikeLift = hairStyle === "ssj2" ? 10 : 0;
+        ctx.moveTo(-18, -38 + crouchY);
+        ctx.lineTo(-32, -56 + crouchY);
+        ctx.lineTo(-19, -58 + crouchY);
+        ctx.lineTo(-24, -82 - spikeLift + crouchY);
+        ctx.lineTo(-8, -68 + crouchY);
+        ctx.lineTo(0, -92 - spikeLift + crouchY);
+        ctx.lineTo(9, -68 + crouchY);
+        ctx.lineTo(24, -82 - spikeLift + crouchY);
+        ctx.lineTo(19, -58 + crouchY);
+        ctx.lineTo(32, -56 + crouchY);
+        ctx.lineTo(17, -38 + crouchY);
+        ctx.lineTo(5, -32 + crouchY);
+        ctx.lineTo(0, -39 + crouchY);
+        ctx.lineTo(-5, -32 + crouchY);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // Ánh highlight trên tóc
+    ctx.strokeStyle = hairHighlight;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-8, -56 + crouchY);
+    ctx.lineTo(0, -72 + crouchY);
+    ctx.lineTo(8, -56 + crouchY);
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+function spawnLightning(cx, cy, count = 1, color = "#fef08a") {
+    for (let i = 0; i < count; i++) {
+        const segments = [];
+        let x = cx + (Math.random() - 0.5) * 110;
+        let y = cy - 75 + (Math.random() - 0.5) * 40;
+        segments.push({ x, y });
+        for (let s = 0; s < 5; s++) {
+            x += (Math.random() - 0.5) * 42;
+            y += 18 + Math.random() * 16;
+            segments.push({ x, y });
+        }
+        state.lightningBolts.push({ segments, color, alpha: 1 });
+    }
+}
+
+function spawnParticles(x, y, color, count = 10) {
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 60 + Math.random() * 190;
+        state.particles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 40,
+            size: 2.5 + Math.random() * 4,
+            color,
+            life: 0.45 + Math.random() * 0.35,
+            maxLife: 0.8
+        });
+    }
+}
+
+function triggerEvolution() {
+    sound.playEvolution();
+    state.flashAlpha = 0.92;
+    state.shakeIntensity = 24;
+
+    const rect = wrapper.getBoundingClientRect();
+    const cx = rect.width / 2;
+    const cy = rect.height * 0.64;
+
+    if (state.stageIndex < STAGES.length - 1) {
+        state.stageIndex++;
+        state.rage = 18;
+    } else {
+        // Đã ở cấp tối đa: thưởng lượng lớn Ki và giữ trạng thái cực hạn
+        const bonusKi = 500 * Math.pow(2, state.zenkaiCount);
+        state.ki += bonusKi;
+        state.totalKiEarned += bonusKi;
+        state.rage = 25;
+        state.floatingTexts.push({
+            x: cx,
+            y: cy - 90,
+            vy: -55,
+            text: `BÙNG NỔ CỰC HẠN +${formatNumber(bonusKi)} KI!`,
+            color: "#38bdf8",
+            life: 1.2,
+            isBig: true
+        });
+    }
+
+    const newStage = STAGES[state.stageIndex];
+    state.shockwaves.push({
+        x: cx,
+        y: cy - 10,
+        radius: 25,
+        maxRadius: Math.max(rect.width, rect.height) * 0.75,
+        color: newStage.hairColor,
+        alpha: 1
+    });
+    spawnParticles(cx, cy - 10, newStage.hairColor, 36);
+    spawnLightning(cx, cy - 10, 5, newStage.lightningColor);
+
+    const banner = document.getElementById('evolution-banner');
+    document.getElementById('evolution-banner-title').textContent = `${newStage.shortName}!`;
+    banner.style.opacity = '1';
+    setTimeout(() => {
+        banner.style.opacity = '0';
+    }, 1500);
+
+    updateUI();
+}
+
+function handleTap(clientX, clientY) {
+    sound.init();
+    const rect = wrapper.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const cx = rect.width / 2;
+    const cy = rect.height * 0.64;
+
+    // Kiểm tra nhấn trúng Vòng Tròn Chí Mạng (Z-Timing)
+    let isCrit = false;
+    if (state.critRing.active && Math.abs(state.critRing.radius - state.critRing.targetRadius) <= 24) {
+        isCrit = true;
+        state.critRing.active = false;
+        state.critRing.cooldown = 3.8;
+    }
+
+    state.lastTapTime = performance.now();
+    state.isChargingPose = true;
+    state.charScaleX = isCrit ? 1.16 : 1.07;
+    state.charScaleY = isCrit ? 0.88 : 0.94;
+    state.shakeIntensity = Math.min(20, state.shakeIntensity + (isCrit ? 11 : 3.5 + (state.rage / 100) * 5));
+
+    const stage = STAGES[state.stageIndex];
+    const rageGain = getTapPowerPercent() * (isCrit ? 3.2 : 1);
+    const kiGain = getKiPerTap() * (isCrit ? getCritMultiplier() : 1);
+
+    state.rage = Math.min(100, state.rage + rageGain);
+    state.ki += kiGain;
+    state.totalKiEarned += kiGain;
+
+    sound.playTap(state.rage, isCrit);
+    spawnParticles(x, y, isCrit ? "#22c55e" : stage.hairColor, isCrit ? 18 : 7);
+
+    if (isCrit) {
+        state.shockwaves.push({
+            x: cx,
+            y: cy - 15,
+            radius: 30,
+            maxRadius: 165,
+            color: "#22c55e",
+            alpha: 0.9
+        });
+        spawnLightning(cx, cy - 15, 3, "#fef08a");
+    }
+
+    state.floatingTexts.push({
+        x: x + (Math.random() - 0.5) * 24,
+        y: y - 12,
+        vy: -75,
+        text: isCrit ? `CHÍ MẠNG! +${formatNumber(kiGain)}` : `+${formatNumber(kiGain)}`,
+        color: isCrit ? "#4ade80" : "#fde047",
+        life: 0.85,
+        isBig: isCrit
+    });
+
+    if (state.rage >= 100) {
+        triggerEvolution();
+    } else {
+        updateUI();
+    }
+}
+
+function selectCharacter(charId) {
+    activeCharacterId = charId;
+    state.stageIndex = 0;
+    state.rage = 0;
+
+    if (charId === 'goku_default') {
+        STAGES = [...DEFAULT_GOKU_STAGES];
+    } else {
+        const found = customCharacters.find(c => c.id === charId);
+        if (found) {
+            const theme = AURA_THEMES[found.theme] || AURA_THEMES.gold;
+            STAGES = found.stages.map((st, idx) => ({
+                id: idx,
+                name: st.title,
+                shortName: st.title,
+                customImageData: st.imageData,
+                hairColor: idx === 0 ? "#94a3b8" : theme.hairColor,
+                hairHighlight: idx === 0 ? "#cbd5e1" : theme.hairHighlight,
+                eyeColor: idx === 0 ? "#ffffff" : theme.eyeColor,
+                auraInner: idx === 0 ? "rgba(255,255,255,0.55)" : theme.auraInner,
+                auraOuter: idx === 0 ? "rgba(186,230,253,0.25)" : theme.auraOuter,
+                lightningColor: idx === 0 ? "#ffffff" : theme.lightningColor,
+                hairStyle: "custom",
+                bpMultiplier: idx === 0 ? 1 : Math.pow(50, idx),
+                decayRate: 3.5 + idx * 2.2,
+                skyTop: idx === 0 ? "#0f172a" : theme.skyTop,
+                skyBottom: idx === 0 ? "#1e293b" : theme.skyBottom,
+                dotColor: idx === 0 ? "#94a3b8" : theme.dotColor
+            }));
+        }
+    }
+    updateUI();
+}
+
+function saveCustomCharactersToStorage() {
+    try {
+        localStorage.setItem('ssj_custom_chars_v1', JSON.stringify(customCharacters));
+    } catch (e) {
+        console.warn("Không thể lưu nhân vật vào bộ nhớ đệm:", e);
+    }
+}
+
+function loadCustomCharactersFromStorage() {
+    try {
+        const raw = localStorage.getItem('ssj_custom_chars_v1');
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+            customCharacters = parsed;
+            customCharacters.forEach(c => {
+                c.stages.forEach(st => {
+                    if (st.imageData) {
+                        const img = new Image();
+                        img.src = st.imageData;
+                        loadedImageCache[st.imageData] = img;
+                    }
+                });
+            });
+        }
+    } catch (e) {}
+}
+
+/**
+ * ============================================================================
+ * 7. SỰ KIỆN NÚT BẤM & XƯỞNG TẠO / NHẬP NHÂN VẬT (CREATOR STUDIO)
+ * ============================================================================
+ */
+wrapper.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) return;
+    handleTap(e.clientX, e.clientY);
+});
+
+document.getElementById('btn-sound').addEventListener('click', () => {
+    sound.init();
+    const isMuted = sound.toggleMute();
+    document.getElementById('sound-icon').textContent = isMuted ? "🔇" : "🔊";
+});
+
+function buyUpgrade(type) {
+    const cost = getUpgradeCost(type);
+    if (state.ki >= cost) {
+        state.ki -= cost;
+        state.upgrades[type]++;
+        sound.playTap(60, false);
+        updateUI();
+    }
+}
+
+document.getElementById('btn-zenkai').addEventListener('click', () => {
+    if (state.stageIndex < 2) return;
+    state.zenkaiCount++;
+    state.stageIndex = 0;
+    state.rage = 0;
+    sound.playEvolution();
+    state.flashAlpha = 0.85;
+    updateUI();
+});
+
+// --- Quản lý Roster (Danh sách nhân vật) ---
+const modalRoster = document.getElementById('modal-roster');
+const modalCreator = document.getElementById('modal-creator');
+
+function renderRosterList() {
+    const listEl = document.getElementById('roster-list');
+    listEl.innerHTML = '';
+
+    // 1. Nhân vật mặc định Goku
+    const gokuActive = activeCharacterId === 'goku_default';
+    const gokuCard = document.createElement('div');
+    gokuCard.className = `p-3 rounded-2xl border flex items-center justify-between ${gokuActive ? 'bg-amber-500/15 border-amber-400' : 'bg-slate-900 border-slate-800'}`;
+    gokuCard.innerHTML = `
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-2xl shadow">🥋</div>
+            <div>
+                <div class="font-anime font-bold text-sm text-white">Goku (Mặc Định)</div>
+                <div class="text-[11px] text-slate-400">5 Cấp Tiến Hóa: Thường → SSJ → SSJ2 → SSJ3 → Blue</div>
+            </div>
+        </div>
+        <button class="px-3 py-1.5 rounded-xl font-anime font-bold text-xs ${gokuActive ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-white'}">
+            ${gokuActive ? 'Đang Dùng' : 'Chọn'}
+        </button>
+    `;
+    gokuCard.addEventListener('click', () => {
+        selectCharacter('goku_default');
+        modalRoster.classList.add('hidden');
+    });
+    listEl.appendChild(gokuCard);
+
+    // 2. Các nhân vật tự vẽ / tải ảnh từ ngoài
+    customCharacters.forEach((char) => {
+        const isActive = activeCharacterId === char.id;
+        const card = document.createElement('div');
+        card.className = `p-3 rounded-2xl border flex items-center justify-between ${isActive ? 'bg-amber-500/15 border-amber-400' : 'bg-slate-900 border-slate-800'}`;
+        const thumbSrc = char.stages[1]?.imageData || char.stages[0]?.imageData || '';
+        card.innerHTML = `
+            <div class="flex items-center gap-3">
+                <img src="${thumbSrc}" class="w-12 h-12 rounded-xl bg-slate-950 object-contain border border-slate-700" alt="${char.name}">
+                <div>
+                    <div class="font-anime font-bold text-sm text-white">${char.name}</div>
+                    <div class="text-[11px] text-slate-400">${char.stages.length} Trạng thái tiến hóa</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <button class="btn-select-char px-3 py-1.5 rounded-xl font-anime font-bold text-xs ${isActive ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-white'}">
+                    ${isActive ? 'Đang Dùng' : 'Chọn'}
+                </button>
+                <button class="btn-del-char w-8 h-8 rounded-xl bg-rose-950/80 text-rose-400 text-xs font-bold flex items-center justify-center">🗑️</button>
+            </div>
+        `;
+        card.querySelector('.btn-select-char').addEventListener('click', () => {
+            selectCharacter(char.id);
+            modalRoster.classList.add('hidden');
+        });
+        card.querySelector('.btn-del-char').addEventListener('click', (e) => {
+            e.stopPropagation();
+            customCharacters = customCharacters.filter(c => c.id !== char.id);
+            saveCustomCharactersToStorage();
+            if (activeCharacterId === char.id) selectCharacter('goku_default');
+            renderRosterList();
+        });
+        listEl.appendChild(card);
+    });
+}
+
+document.getElementById('btn-roster').addEventListener('click', () => {
+    renderRosterList();
+    modalRoster.classList.remove('hidden');
+});
+document.getElementById('btn-close-roster').addEventListener('click', () => {
+    modalRoster.classList.add('hidden');
+});
+
+// --- Xưởng Tạo Nhân Vật (Drawing & Image Importer) ---
+const drawCanvas = document.getElementById('drawCanvas');
+const drawCtx = drawCanvas.getContext('2d');
+const uploadPreviewCanvas = document.getElementById('uploadPreviewCanvas');
+const uploadPreviewCtx = uploadPreviewCanvas.getContext('2d');
+
+let creatorState = {
+    mode: 'draw', // 'draw' | 'upload'
+    editingStage: 0,
+    brushColor: '#111827',
+    brushSize: 6,
+    isEraser: false,
+    isMirror: true,
+    isDrawing: false,
+    lastX: 0,
+    lastY: 0,
+    undoStack: [[], [], []],
+    rawUploadedImages: [null, null, null],
+    stagesData: [
+        { title: "Trạng Thái Thường", imageData: null },
+        { title: "Siêu Chiến Binh Cấp 1", imageData: null },
+        { title: "Siêu Chiến Binh Cực Hạn", imageData: null }
+    ]
+};
+
+function saveCurrentStageSnapshot() {
+    if (creatorState.mode === 'draw') {
+        creatorState.stagesData[creatorState.editingStage].imageData = drawCanvas.toDataURL('image/png');
+    } else {
+        creatorState.stagesData[creatorState.editingStage].imageData = uploadPreviewCanvas.toDataURL('image/png');
+    }
+    creatorState.stagesData[creatorState.editingStage].title = document.getElementById('inp-stage-title').value.trim() || `Cấp ${creatorState.editingStage + 1}`;
+}
+
+function loadStageToEditor(stageIdx) {
+    creatorState.editingStage = stageIdx;
+    document.querySelectorAll('.stage-select-btn').forEach((btn, idx) => {
+        if (idx === stageIdx) {
+            btn.className = "stage-select-btn py-1.5 px-1 rounded-xl text-[11px] font-bold bg-amber-500 text-slate-950 border border-amber-400";
+        } else {
+            btn.className = "stage-select-btn py-1.5 px-1 rounded-xl text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700";
+        }
+    });
+    document.getElementById('inp-stage-title').value = creatorState.stagesData[stageIdx].title;
+
+    drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+    uploadPreviewCtx.clearRect(0, 0, uploadPreviewCanvas.width, uploadPreviewCanvas.height);
+
+    const existingData = creatorState.stagesData[stageIdx].imageData;
+    if (existingData) {
+        const img = new Image();
+        img.onload = () => {
+            drawCtx.drawImage(img, 0, 0);
+            uploadPreviewCtx.drawImage(img, 0, 0);
+        };
+        img.src = existingData;
+    }
+}
+
+document.getElementById('btn-open-creator').addEventListener('click', () => {
+    creatorState.stagesData = [
+        { title: "Trạng Thái Thường", imageData: null },
+        { title: "Siêu Chiến Binh Cấp 1", imageData: null },
+        { title: "Siêu Chiến Binh Cực Hạn", imageData: null }
+    ];
+    creatorState.undoStack = [[], [], []];
+    creatorState.rawUploadedImages = [null, null, null];
+    loadStageToEditor(0);
+    modalRoster.classList.add('hidden');
+    modalCreator.classList.remove('hidden');
+});
+
+document.getElementById('btn-close-creator').addEventListener('click', () => {
+    modalCreator.classList.add('hidden');
+});
+
+document.querySelectorAll('.stage-select-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        saveCurrentStageSnapshot();
+        const targetIdx = parseInt(btn.getAttribute('data-edit-stage'), 10);
+        loadStageToEditor(targetIdx);
+    });
+});
+
+document.getElementById('btn-copy-prev-stage').addEventListener('click', () => {
+    saveCurrentStageSnapshot();
+    const srcIdx = creatorState.editingStage === 0 ? 0 : 0;
+    const srcData = creatorState.stagesData[srcIdx].imageData;
+    if (!srcData) return;
+    const img = new Image();
+    img.onload = () => {
+        drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+        drawCtx.drawImage(img, 0, 0);
+        uploadPreviewCtx.clearRect(0, 0, uploadPreviewCanvas.width, uploadPreviewCanvas.height);
+        uploadPreviewCtx.drawImage(img, 0, 0);
+        saveCurrentStageSnapshot();
+    };
+    img.src = srcData;
+});
+
+// Chuyển Tab Tự Vẽ vs Tải Ảnh
+document.getElementById('tab-draw').addEventListener('click', () => {
+    saveCurrentStageSnapshot();
+    creatorState.mode = 'draw';
+    document.getElementById('tab-draw').className = "py-2 rounded-xl font-anime text-xs font-bold bg-amber-500 text-slate-950 transition";
+    document.getElementById('tab-upload').className = "py-2 rounded-xl font-anime text-xs font-bold bg-slate-800 text-slate-300 transition";
+    document.getElementById('panel-draw').classList.remove('hidden');
+    document.getElementById('panel-upload').classList.add('hidden');
+});
+
+document.getElementById('tab-upload').addEventListener('click', () => {
+    saveCurrentStageSnapshot();
+    creatorState.mode = 'upload';
+    document.getElementById('tab-upload').className = "py-2 rounded-xl font-anime text-xs font-bold bg-amber-500 text-slate-950 transition";
+    document.getElementById('tab-draw').className = "py-2 rounded-xl font-anime text-xs font-bold bg-slate-800 text-slate-300 transition";
+    document.getElementById('panel-upload').classList.remove('hidden');
+    document.getElementById('panel-draw').classList.add('hidden');
+});
+
+// Công cụ vẽ Canvas
+function getDrawCoords(e) {
+    const rect = drawCanvas.getBoundingClientRect();
+    const scaleX = drawCanvas.width / rect.width;
+    const scaleY = drawCanvas.height / rect.height;
+    return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+    };
+}
+
+function drawStrokeSegment(x1, y1, x2, y2) {
+    drawCtx.save();
+    drawCtx.lineCap = 'round';
+    drawCtx.lineJoin = 'round';
+    drawCtx.lineWidth = creatorState.brushSize;
+    if (creatorState.isEraser) {
+        drawCtx.globalCompositeOperation = 'destination-out';
+        drawCtx.strokeStyle = 'rgba(0,0,0,1)';
+    } else {
+        drawCtx.globalCompositeOperation = 'source-over';
+        drawCtx.strokeStyle = creatorState.brushColor;
+    }
+
+    drawCtx.beginPath();
+    drawCtx.moveTo(x1, y1);
+    drawCtx.lineTo(x2, y2);
+    drawCtx.stroke();
+
+    if (creatorState.isMirror) {
+        const w = drawCanvas.width;
+        drawCtx.beginPath();
+        drawCtx.moveTo(w - x1, y1);
+        drawCtx.lineTo(w - x2, y2);
+        drawCtx.stroke();
+    }
+    drawCtx.restore();
+}
+
+drawCanvas.addEventListener('pointerdown', (e) => {
+    creatorState.isDrawing = true;
+    const stack = creatorState.undoStack[creatorState.editingStage];
+    if (stack.length > 15) stack.shift();
+    stack.push(drawCanvas.toDataURL());
+
+    const pt = getDrawCoords(e);
+    creatorState.lastX = pt.x;
+    creatorState.lastY = pt.y;
+    drawStrokeSegment(pt.x, pt.y, pt.x + 0.1, pt.y + 0.1);
+});
+
+drawCanvas.addEventListener('pointermove', (e) => {
+    if (!creatorState.isDrawing) return;
+    const pt = getDrawCoords(e);
+    drawStrokeSegment(creatorState.lastX, creatorState.lastY, pt.x, pt.y);
+    creatorState.lastX = pt.x;
+    creatorState.lastY = pt.y;
+});
+
+window.addEventListener('pointerup', () => {
+    if (creatorState.isDrawing) {
+        creatorState.isDrawing = false;
+        saveCurrentStageSnapshot();
+    }
+});
+
+// Bảng màu & công cụ vẽ
+document.querySelectorAll('.color-swatch').forEach(btn => {
+    btn.addEventListener('click', () => {
+        creatorState.isEraser = false;
+        creatorState.brushColor = btn.getAttribute('data-color');
+        document.getElementById('tool-brush').className = "flex-1 py-1.5 rounded-xl bg-amber-500 text-slate-950";
+        document.getElementById('tool-eraser').className = "flex-1 py-1.5 rounded-xl bg-slate-800 text-slate-300";
+    });
+});
+
+document.getElementById('inp-custom-color').addEventListener('input', (e) => {
+    creatorState.isEraser = false;
+    creatorState.brushColor = e.target.value;
+});
+
+document.getElementById('tool-brush').addEventListener('click', () => {
+    creatorState.isEraser = false;
+    document.getElementById('tool-brush').className = "flex-1 py-1.5 rounded-xl bg-amber-500 text-slate-950";
+    document.getElementById('tool-eraser').className = "flex-1 py-1.5 rounded-xl bg-slate-800 text-slate-300";
+});
+
+document.getElementById('tool-eraser').addEventListener('click', () => {
+    creatorState.isEraser = true;
+    document.getElementById('tool-eraser').className = "flex-1 py-1.5 rounded-xl bg-amber-500 text-slate-950";
+    document.getElementById('tool-brush').className = "flex-1 py-1.5 rounded-xl bg-slate-800 text-slate-300";
+});
+
+document.getElementById('tool-mirror').addEventListener('click', () => {
+    creatorState.isMirror = !creatorState.isMirror;
+    document.getElementById('mirror-guide').style.opacity = creatorState.isMirror ? "1" : "0";
+});
+
+document.getElementById('tool-undo').addEventListener('click', () => {
+    const stack = creatorState.undoStack[creatorState.editingStage];
+    if (stack.length === 0) return;
+    const prev = stack.pop();
+    const img = new Image();
+    img.onload = () => {
+        drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+        drawCtx.drawImage(img, 0, 0);
+        saveCurrentStageSnapshot();
+    };
+    img.src = prev;
+});
+
+document.getElementById('tool-clear').addEventListener('click', () => {
+    drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+    saveCurrentStageSnapshot();
+});
+
+document.getElementById('inp-brush-size').addEventListener('input', (e) => {
+    creatorState.brushSize = parseInt(e.target.value, 10);
+    document.getElementById('lbl-brush-size').textContent = `${creatorState.brushSize}px`;
+});
+
+// Xử lý tải ảnh & tách nền tự động (Chroma Key)
+function processUploadedImage() {
+    const rawImg = creatorState.rawUploadedImages[creatorState.editingStage];
+    if (!rawImg) return;
+
+    const w = uploadPreviewCanvas.width;
+    const h = uploadPreviewCanvas.height;
+    uploadPreviewCtx.clearRect(0, 0, w, h);
+
+    const scale = Math.min(w / rawImg.width, h / rawImg.height) * 0.92;
+    const dw = rawImg.width * scale;
+    const dh = rawImg.height * scale;
+    const dx = (w - dw) / 2;
+    const dy = (h - dh) / 2;
+    uploadPreviewCtx.drawImage(rawImg, dx, dy, dw, dh);
+
+    const mode = document.getElementById('sel-bg-remove').value;
+    const tol = parseInt(document.getElementById('inp-bg-tolerance').value, 10);
+
+    if (mode !== 'none') {
+        const imgData = uploadPreviewCtx.getImageData(0, 0, w, h);
+        const data = imgData.data;
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            if (mode === 'white' && r > 255 - tol && g > 255 - tol && b > 255 - tol) {
+                data[i + 3] = 0;
+            } else if (mode === 'black' && r < tol && g < tol && b < tol) {
+                data[i + 3] = 0;
+            } else if (mode === 'green' && g > 120 && g - Math.max(r, b) > tol * 0.6) {
+                data[i + 3] = 0;
+            }
+        }
+        uploadPreviewCtx.putImageData(imgData, 0, 0);
+    }
+    saveCurrentStageSnapshot();
+}
+
+document.getElementById('inp-file-upload').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+            creatorState.rawUploadedImages[creatorState.editingStage] = img;
+            processUploadedImage();
+        };
+        img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+});
+
+document.getElementById('sel-bg-remove').addEventListener('change', processUploadedImage);
+document.getElementById('inp-bg-tolerance').addEventListener('input', processUploadedImage);
+
+//Lưu nhân vật & xuất trận ngay
+document.getElementById('btn-save-character').addEventListener('click', () => {
+    saveCurrentStageSnapshot();
+    const charName = document.getElementById('inp-char-name').value.trim() || "Chiến Binh Mới";
+    const theme = document.getElementById('inp-aura-theme').value;
+
+    // Lọc ra các cấp độ đã có hình vẽ hoặc ảnh tải lên (ít nhất cấp 1)
+    const validStages = creatorState.stagesData.filter((st, idx) => idx === 0 || st.imageData !== null);
+    if (!validStages[0].imageData) {
+        // Nếu người dùng chưa vẽ gì ở cấp 1, tự vẽ hình bóng chiến binh mẫu
+        drawCtx.fillStyle = "#f97316";
+        drawCtx.beginPath();
+        drawCtx.arc(120, 120, 50, 0, Math.PI * 2);
+        drawCtx.fill();
+        validStages[0].imageData = drawCanvas.toDataURL('image/png');
+    }
+    if (validStages.length === 1) {
+        validStages.push({
+            title: `${charName} (Tiến Hóa)`,
+            imageData: validStages[0].imageData
+        });
+    }
+
+    validStages.forEach(st => {
+        if (st.imageData) {
+            const img = new Image();
+            img.src = st.imageData;
+            loadedImageCache[st.imageData] = img;
+        }
+    });
+
+    const newChar = {
+        id: 'char_' + Date.now(),
+        name: charName,
+        theme: theme,
+        stages: validStages
+    };
+
+    customCharacters.push(newChar);
+    saveCustomCharactersToStorage();
+    selectCharacter(newChar.id);
+    modalCreator.classList.add('hidden');
+});
+
+/**
+ * ============================================================================
+ * 8. PHÒNG THU & TỰ THIẾT KẾ ÂM THANH (CUSTOM SOUND STUDIO LOGIC)
+ * ============================================================================
+ */
+const modalSoundStudio = document.getElementById('modal-sound-studio');
+let activeSoundSlot = 'tap'; // 'tap' | 'evo'
+let mediaRecorder = null;
+let recordedChunks = [];
+let isRecordingMic = false;
+
+function refreshSoundStudioUI() {
+    const slotData = sound.customSlots[activeSoundSlot];
+    document.getElementById('lbl-current-sound-source').textContent = slotData.label;
+
+    const volPct = Math.round((typeof slotData.volume === 'number' ? slotData.volume : 1.0) * 100);
+    document.getElementById('inp-audio-volume').value = volPct;
+    document.getElementById('lbl-audio-volume').textContent = `${volPct}%`;
+
+    if (activeSoundSlot === 'tap') {
+        document.getElementById('sound-tab-tap').className = "py-2 rounded-xl font-anime text-xs font-bold bg-purple-600 text-white shadow transition";
+        document.getElementById('sound-tab-evo').className = "py-2 rounded-xl font-anime text-xs font-bold bg-slate-800 text-slate-300 transition";
+    } else {
+        document.getElementById('sound-tab-evo').className = "py-2 rounded-xl font-anime text-xs font-bold bg-amber-500 text-slate-950 shadow transition";
+        document.getElementById('sound-tab-tap').className = "py-2 rounded-xl font-anime text-xs font-bold bg-slate-800 text-slate-300 transition";
+    }
+
+    const cfg = slotData.synth;
+    document.getElementById('sel-synth-preset').value = cfg.preset;
+    document.getElementById('inp-synth-pitch').value = cfg.pitch;
+    document.getElementById('lbl-synth-pitch').textContent = `${cfg.pitch} Hz`;
+    document.getElementById('inp-synth-dur').value = cfg.dur;
+    document.getElementById('lbl-synth-dur').textContent = `${cfg.dur}s`;
+    document.getElementById('inp-synth-vibrato').value = cfg.vibrato;
+    document.getElementById('lbl-synth-vibrato').textContent = `${cfg.vibrato} Hz`;
+    document.getElementById('inp-synth-spark').value = cfg.spark;
+    document.getElementById('lbl-synth-spark').textContent = `${cfg.spark}%`;
+}
+
+document.getElementById('btn-sound-studio').addEventListener('click', () => {
+    sound.init();
+    refreshSoundStudioUI();
+    modalSoundStudio.classList.remove('hidden');
+});
+
+document.getElementById('btn-close-sound-studio').addEventListener('click', () => {
+    modalSoundStudio.classList.add('hidden');
+});
+document.getElementById('btn-done-sound-studio').addEventListener('click', () => {
+    modalSoundStudio.classList.add('hidden');
+});
+
+document.getElementById('sound-tab-tap').addEventListener('click', () => {
+    activeSoundSlot = 'tap';
+    refreshSoundStudioUI();
+});
+document.getElementById('sound-tab-evo').addEventListener('click', () => {
+    activeSoundSlot = 'evo';
+    refreshSoundStudioUI();
+});
+
+document.getElementById('btn-test-sound').addEventListener('click', () => {
+    sound.previewSlot(activeSoundSlot);
+});
+
+document.getElementById('btn-reset-sound').addEventListener('click', () => {
+    sound.resetSlotToDefault(activeSoundSlot);
+    refreshSoundStudioUI();
+    sound.previewSlot(activeSoundSlot);
+});
+
+// Cập nhật thanh trượt bộ tổng hợp âm thanh
+['inp-synth-pitch', 'inp-synth-dur', 'inp-synth-vibrato', 'inp-synth-spark'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+        document.getElementById('lbl-synth-pitch').textContent = `${document.getElementById('inp-synth-pitch').value} Hz`;
+        document.getElementById('lbl-synth-dur').textContent = `${document.getElementById('inp-synth-dur').value}s`;
+        document.getElementById('lbl-synth-vibrato').textContent = `${document.getElementById('inp-synth-vibrato').value} Hz`;
+        document.getElementById('lbl-synth-spark').textContent = `${document.getElementById('inp-synth-spark').value}%`;
+    });
+});
+
+document.getElementById('btn-apply-synth').addEventListener('click', () => {
+    const presetSel = document.getElementById('sel-synth-preset');
+    const presetText = presetSel.options[presetSel.selectedIndex].text;
+    const cfg = {
+        preset: presetSel.value,
+        pitch: parseInt(document.getElementById('inp-synth-pitch').value, 10),
+        dur: parseFloat(document.getElementById('inp-synth-dur').value),
+        vibrato: parseInt(document.getElementById('inp-synth-vibrato').value, 10),
+        spark: parseInt(document.getElementById('inp-synth-spark').value, 10)
+    };
+    sound.setCustomSynth(activeSoundSlot, cfg, `Tự chỉnh: ${presetText}`);
+    refreshSoundStudioUI();
+    sound.previewSlot(activeSoundSlot);
+});
+
+// Ghi âm trực tiếp từ Micro điện thoại
+document.getElementById('btn-record-mic').addEventListener('click', async () => {
+    sound.init();
+    const btnRec = document.getElementById('btn-record-mic');
+    const lblRec = document.getElementById('lbl-record-btn');
+    const statusRec = document.getElementById('lbl-record-status');
+
+    if (!isRecordingMic) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                stream.getTracks().forEach(track => track.stop());
+                const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    const label = activeSoundSlot === 'tap' ? '🎤 Giọng thu âm (Click)' : '🎤 Giọng thu âm (Tiến Hóa)';
+                    await sound.setCustomAudioFromDataUrl(activeSoundSlot, reader.result, label);
+                    refreshSoundStudioUI();
+                    sound.previewSlot(activeSoundSlot);
+                };
+                reader.readAsDataURL(blob);
+            };
+
+            mediaRecorder.start();
+            isRecordingMic = true;
+            btnRec.classList.add('animate-pulse', 'bg-red-700');
+            lblRec.textContent = "Dừng & Lưu Thu Âm";
+            statusRec.classList.remove('hidden');
+        } catch (err) {
+            statusRec.textContent = "Không truy cập được Micro. Hãy cấp quyền hoặc tải file âm thanh!";
+            statusRec.classList.remove('hidden');
+        }
+    } else {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+        isRecordingMic = false;
+        btnRec.classList.remove('animate-pulse', 'bg-red-700');
+        lblRec.textContent = "Bắt Đầu Ghi Âm";
+        statusRec.classList.add('hidden');
+    }
+});
+
+// Tải file âm thanh từ máy (MP3, WAV, OGG...)
+document.getElementById('inp-audio-upload').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    sound.init();
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+        const shortName = file.name.length > 22 ? file.name.slice(0, 20) + '...' : file.name;
+        await sound.setCustomAudioFromDataUrl(activeSoundSlot, ev.target.result, `📁 ${shortName}`);
+        refreshSoundStudioUI();
+        sound.previewSlot(activeSoundSlot);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+});
+
+// Điều chỉnh âm lượng cho file âm thanh tải lên / thu âm (0% - 200%)
+document.getElementById('inp-audio-volume').addEventListener('input', (e) => {
+    const pct = parseInt(e.target.value, 10);
+    document.getElementById('lbl-audio-volume').textContent = `${pct}%`;
+    sound.setSlotVolume(activeSoundSlot, pct / 100);
+});
+
+// Khởi chạy game khi tải trang xong
+window.onload = function () {
+    loadCustomCharactersFromStorage();
+    sound.loadCustomSoundsFromStorage();
+    updateUI();
+    requestAnimationFrame(gameLoop);
+};
+</script>
+</body>
+</html>
